@@ -1,9 +1,11 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
+import Button from '@mui/material/Button';
+import { useGridApiRef } from '@mui/x-data-grid';
 import { LineupGrid } from './components/LineupGrid';
 import { useRoster } from './hooks/useRoster';
 import { computeLineup } from './utils/lineupEngine';
@@ -13,6 +15,7 @@ import { Player } from './types';
 
 export default function App() {
   const { roster, loading, error, togglePlayer } = useRoster();
+  const gridApiRef = useGridApiRef();
 
   const activePlayers = useMemo(() => roster.filter((p) => p.active), [roster]);
 
@@ -54,7 +57,6 @@ export default function App() {
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: '#edf8f9' }}>
-      {/* Header banner */}
       <Box
         sx={{
           backgroundColor: PALETTE.black,
@@ -68,24 +70,46 @@ export default function App() {
         <Typography variant="h5" sx={{ fontWeight: 700, color: PALETTE.lightTeal, flexGrow: 1 }}>
           Salty Stats 🥎
         </Typography>
+
         <Chip
           label={`${activePlayers.length} active`}
           size="small"
           sx={{
-            backgroundColor: activePlayers.length >= 10 ? PALETTE.teal : 'red',
-            color: PALETTE.black,
+            backgroundColor: activePlayers.length >= 10 ? PALETTE.teal : '#e57373',
             fontWeight: 600,
           }}
         />
+
+        {/* <Button
+          size="small"
+          variant="outlined"
+          onClick={handleDownloadPng}
+          sx={{
+            textTransform: 'none',
+          }}
+        >
+          Export .PNG
+        </Button> */}
+
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={() => gridApiRef.current?.exportDataAsCsv()}
+          sx={{
+            textTransform: 'none',
+          }}
+        >
+          Export .CSV
+        </Button>
       </Box>
 
-      {/* Content */}
       <Box sx={{ p: 3 }}>
         <LineupGrid
           roster={roster}
           orderedPlayers={orderedPlayers}
           innings={innings}
           onToggle={togglePlayer}
+          apiRef={gridApiRef}
         />
       </Box>
     </Box>

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridRenderCellParams, useGridApiRef } from '@mui/x-data-grid';
 import Checkbox from '@mui/material/Checkbox';
 import Chip from '@mui/material/Chip';
 import Box from '@mui/material/Box';
@@ -7,26 +7,32 @@ import Typography from '@mui/material/Typography';
 import { Lineup, Player } from '../types';
 import { PALETTE } from '../theme';
 
+export type LineupGridApiRef = ReturnType<typeof useGridApiRef>;
+
 const INNING_COUNT = 9;
 
 // All derived from the palette: greens for infield/battery, teals for outfield/rover
 const POSITION_COLORS: Record<string, string> = {
-  Pitcher: PALETTE.black, // most distinctive — the ace
-  Catcher: '#1f4e32', // deep sage
-  '1B': '#2d6a46', // dark sage
-  '2B': '#3d7d57', // medium sage
-  '3B': '#4f9169', // lighter sage (still readable)
-  Rover: '#1a7878', // distinct teal, separate from outfield
-  SS: '#0f5e5e', // dark teal
-  LF: '#1e7b79', // medium teal
-  CF: '#258f8d', // brighter teal
-  RF: '#2a9694', // lighter teal
+  Pitcher: PALETTE.black,
+  Catcher: '#1f4e32',
+  '1B': '#2d6a46',
+  '2B': '#3d7d57',
+  '3B': '#4f9169',
+  Rover: '#1a7878',
+  SS: '#0f5e5e',
+  LF: '#1e7b79',
+  CF: '#258f8d',
+  RF: '#2a9694',
 };
 
 function PositionChip({ value }: { value: string }) {
   const color = POSITION_COLORS[value];
   if (!color) {
-    return <Typography variant="caption">—</Typography>;
+    return (
+      <Typography variant="caption" sx={{ color: '#aaa' }}>
+        —
+      </Typography>
+    );
   }
   return (
     <Chip
@@ -49,6 +55,7 @@ interface LineupGridProps {
   orderedPlayers: Player[];
   innings: Lineup;
   onToggle: (name: string) => void;
+  apiRef: LineupGridApiRef;
 }
 
 interface RowData {
@@ -66,6 +73,7 @@ export function LineupGrid({
   orderedPlayers,
   innings,
   onToggle,
+  apiRef,
 }: LineupGridProps) {
   const rows: RowData[] = useMemo(() => {
     return orderedPlayers.map((player, idx) => {
@@ -115,7 +123,6 @@ export function LineupGrid({
       field: 'battingSlot',
       headerName: 'Order',
       width: 80,
-      sortable: false,
     },
     {
       field: 'name',
@@ -134,7 +141,6 @@ export function LineupGrid({
       width: 80,
       align: 'center',
       headerAlign: 'center',
-      sortable: false,
     },
     ...inningColumns,
   ];
@@ -142,10 +148,12 @@ export function LineupGrid({
   return (
     <Box sx={{ width: '100%', borderRadius: 2, overflow: 'hidden', boxShadow: 1 }}>
       <DataGrid
+        apiRef={apiRef}
         rows={rows}
         columns={columns}
         hideFooter
         disableColumnMenu
+        disableVirtualization
         rowHeight={40}
         sx={{
           border: 'none',
