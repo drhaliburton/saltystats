@@ -116,9 +116,17 @@ export function computeLineup(activePlayers: Player[]): Lineup {
     });
 
     lastSitters = sitters;
-    didntGetPreferredLastInning = new Set(
+
+    // Players who fielded but didn't get their preferred position get priority next inning.
+    const fieldedAndMissed = new Set(
       fielders.filter((p) => positions[p.name] !== p.preferredPosition).map((p) => p.name)
     );
+    // Priority players who sat this inning still haven't gotten their preferred —
+    // retain their priority so it isn't wiped by the sit rotation.
+    const priorityRetained = new Set(
+      [...didntGetPreferredLastInning].filter((name) => sitters.has(name))
+    );
+    didntGetPreferredLastInning = new Set([...fieldedAndMissed, ...priorityRetained]);
   }
 
   return innings;
