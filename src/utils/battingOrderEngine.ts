@@ -1,28 +1,13 @@
 import { Player } from '../types';
 
 function applyPowerOrdering(players: Player[]): Player[] {
-  const onBase = players
-    .filter((p) => p.battingPower <= 2)
-    .sort((a, b) => a.battingPower - b.battingPower);
-  const power = players
-    .filter((p) => p.battingPower >= 3)
-    .sort((a, b) => b.battingPower - a.battingPower);
-
-  const order: Player[] = [];
-  let ob = 0,
-    pw = 0,
-    slot = 0;
-  while (ob < onBase.length || pw < power.length) {
-    if ((slot + 1) % 4 === 0 && pw < power.length) {
-      order.push(power[pw++]);
-    } else if (ob < onBase.length) {
-      order.push(onBase[ob++]);
-    } else {
-      order.push(power[pw++]);
-    }
-    slot++;
+  const sorted = [...players].sort((a, b) => b.battingPower - a.battingPower);
+  // Research (Tango, "The Book"): best hitter should bat 2nd, not leadoff.
+  // Leadoff gets most total PAs; 2nd gets most high-leverage PAs with runners on.
+  if (sorted.length >= 2) {
+    [sorted[0], sorted[1]] = [sorted[1], sorted[0]];
   }
-  return order;
+  return sorted;
 }
 
 // Interleave two arrays, alternating elements. Appends leftovers at the end.
