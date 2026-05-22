@@ -51,14 +51,18 @@ function assignPositions(
     }
   }
 
-  // Phase 2: best-available pass for all remaining unassigned players
-  for (const player of [...priority, ...rest]) {
-    if (assigned[player.name]) continue;
-    for (const pos of prefs(player)) {
-      if (!taken.has(pos)) {
-        assigned[player.name] = pos;
-        taken.add(pos);
-        break;
+  // Phase 2: round-robin preference pass.
+  // Everyone competes for their preferred position first, then alt1, alt2, alt3.
+  // This prevents a later-listed player from grabbing SS as their alt2 before an
+  // earlier-listed player even gets to claim it as their preferred.
+  const allPlayers = [...priority, ...rest];
+  for (let tier = 0; tier < 4; tier++) {
+    for (const player of allPlayers) {
+      if (assigned[player.name]) continue;
+      const prefList = prefs(player);
+      if (tier < prefList.length && !taken.has(prefList[tier])) {
+        assigned[player.name] = prefList[tier];
+        taken.add(prefList[tier]);
       }
     }
   }

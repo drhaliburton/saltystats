@@ -54,6 +54,7 @@ export function useRoster(): UseRosterReturn {
       download: true,
       header: true,
       skipEmptyLines: true,
+      transformHeader: (h: string) => h.trim(),
       complete: ({ data, errors }) => {
         if (errors.length) {
           setError('Failed to parse spreadsheet: ' + errors[0].message);
