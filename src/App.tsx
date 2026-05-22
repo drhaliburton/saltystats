@@ -71,7 +71,11 @@ export default function App() {
         <Chip
           label={`${activePlayers.length} active`}
           size="small"
-          sx={{ backgroundColor: PALETTE.teal, color: PALETTE.black, fontWeight: 600 }}
+          sx={{
+            backgroundColor: activePlayers.length >= 10 ? PALETTE.teal : 'red',
+            color: PALETTE.black,
+            fontWeight: 600,
+          }}
         />
       </Box>
 

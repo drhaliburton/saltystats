@@ -41,8 +41,9 @@ function assignPositions(
   const rest = fielders.filter((p) => !didntGetPreferredLastInning.has(p.name));
 
   // Phase 1: guarantee pass — priority players lock their preferred position first,
-  // before anyone else is assigned anything.
+  // before anyone else is assigned anything. Skip players already locked (e.g. pitcher).
   for (const player of priority) {
+    if (assigned[player.name]) continue;
     const pref = player.preferredPosition;
     if (pref && !taken.has(pref)) {
       assigned[player.name] = pref;
@@ -88,11 +89,13 @@ export function computeLineup(activePlayers: Player[]): Lineup {
   activePlayers.forEach((p) => (sitCounts[p.name] = 0));
 
   // The designated pitcher is the active player with the lowest pitcherPriority.
+  // Falls back to whoever has preferredPosition === 'Pitcher' if the column isn't set.
   // They play Pitcher every inning and are exempt from SIT rotation.
-  const pitcherCandidates = activePlayers
-    .filter((p) => p.pitcherPriority != null)
+  const byPriority = activePlayers
+    .filter((p) => p.pitcherPriority != null && !isNaN(p.pitcherPriority))
     .sort((a, b) => (a.pitcherPriority ?? 0) - (b.pitcherPriority ?? 0));
-  const designatedPitcher = pitcherCandidates[0] ?? null;
+  const byPreference = activePlayers.filter((p) => p.preferredPosition === 'Pitcher');
+  const designatedPitcher = byPriority[0] ?? byPreference[0] ?? null;
   const pitchers = new Set<string>(designatedPitcher ? [designatedPitcher.name] : []);
   const nonPitchers = activePlayers.filter((p) => !pitchers.has(p.name));
 

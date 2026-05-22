@@ -11,7 +11,6 @@ const INNING_COUNT = 9;
 
 // All derived from the palette: greens for infield/battery, teals for outfield/rover
 const POSITION_COLORS: Record<string, string> = {
-  SIT: '#9e9e9e',
   Pitcher: PALETTE.black, // most distinctive — the ace
   Catcher: '#1f4e32', // deep sage
   '1B': '#2d6a46', // dark sage
@@ -25,13 +24,10 @@ const POSITION_COLORS: Record<string, string> = {
 };
 
 function PositionChip({ value }: { value: string }) {
-  const color = POSITION_COLORS[value] ?? '#424242';
-  if (value === 'SIT')
-    return (
-      <Typography variant="caption" sx={{ color: '#aaa' }}>
-        —
-      </Typography>
-    );
+  const color = POSITION_COLORS[value];
+  if (!color) {
+    return <Typography variant="caption">—</Typography>;
+  }
   return (
     <Chip
       label={value}
