@@ -56,7 +56,6 @@ interface LineupGridProps {
   innings: Lineup;
   onToggle: (name: string) => void;
   apiRef: LineupGridApiRef;
-  containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 interface RowData {
@@ -75,7 +74,6 @@ export function LineupGrid({
   innings,
   onToggle,
   apiRef,
-  containerRef,
 }: LineupGridProps) {
   const rows: RowData[] = useMemo(() => {
     return orderedPlayers.map((player, idx) => {
@@ -112,6 +110,7 @@ export function LineupGrid({
       headerName: '',
       width: 50,
       sortable: false,
+      disableExport: true,
       renderCell: ({ row }: GridRenderCellParams<RowData>) => (
         <Checkbox
           checked={row.active as boolean}
@@ -148,10 +147,7 @@ export function LineupGrid({
   ];
 
   return (
-    <Box
-      ref={containerRef}
-      sx={{ width: '100%', borderRadius: 2, overflow: 'hidden', boxShadow: 1 }}
-    >
+    <Box sx={{ width: '100%', borderRadius: 2, overflow: 'hidden', boxShadow: 1 }}>
       <DataGrid
         apiRef={apiRef}
         rows={rows}
