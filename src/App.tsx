@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
+import { toPng } from 'html-to-image';
 import { useGridApiRef } from '@mui/x-data-grid';
 import { LineupGrid } from './components/LineupGrid';
 import { useRoster } from './hooks/useRoster';
@@ -13,9 +14,25 @@ import { computeBattingOrder } from './utils/battingOrderEngine';
 import { PALETTE } from './theme';
 import { Player } from './types';
 
+function exportFileName() {
+  const d = new Date();
+  const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return `salty-order-${date}`;
+}
+
 export default function App() {
   const { roster, loading, error, togglePlayer } = useRoster();
   const gridApiRef = useGridApiRef();
+  const lineupRef = useRef<HTMLDivElement>(null);
+
+  async function handleDownloadPng() {
+    if (!lineupRef.current) return;
+    const dataUrl = await toPng(lineupRef.current, { cacheBust: true });
+    const link = document.createElement('a');
+    link.download = `${exportFileName()}.png`;
+    link.href = dataUrl;
+    link.click();
+  }
 
   const activePlayers = useMemo(() => roster.filter((p) => p.active), [roster]);
 
@@ -80,16 +97,14 @@ export default function App() {
           }}
         />
 
-        {/* <Button
+        <Button
           size="small"
           variant="outlined"
           onClick={handleDownloadPng}
-          sx={{
-            textTransform: 'none',
-          }}
+          sx={{ textTransform: 'none' }}
         >
-          Export .PNG
-        </Button> */}
+          Export .png
+        </Button>
 
         <Button
           size="small"
@@ -99,7 +114,7 @@ export default function App() {
             textTransform: 'none',
           }}
         >
-          Export .CSV
+          Export .csv
         </Button>
       </Box>
 
@@ -110,6 +125,7 @@ export default function App() {
           innings={innings}
           onToggle={togglePlayer}
           apiRef={gridApiRef}
+          containerRef={lineupRef}
         />
       </Box>
     </Box>

@@ -56,6 +56,7 @@ interface LineupGridProps {
   innings: Lineup;
   onToggle: (name: string) => void;
   apiRef: LineupGridApiRef;
+  containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 interface RowData {
@@ -74,6 +75,7 @@ export function LineupGrid({
   innings,
   onToggle,
   apiRef,
+  containerRef,
 }: LineupGridProps) {
   const rows: RowData[] = useMemo(() => {
     return orderedPlayers.map((player, idx) => {
@@ -146,7 +148,10 @@ export function LineupGrid({
   ];
 
   return (
-    <Box sx={{ width: '100%', borderRadius: 2, overflow: 'hidden', boxShadow: 1 }}>
+    <Box
+      ref={containerRef}
+      sx={{ width: '100%', borderRadius: 2, overflow: 'hidden', boxShadow: 1 }}
+    >
       <DataGrid
         apiRef={apiRef}
         rows={rows}
