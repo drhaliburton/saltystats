@@ -109,7 +109,7 @@ export default function App() {
         <Button
           size="small"
           variant="outlined"
-          onClick={() => gridApiRef.current?.exportDataAsCsv()}
+          onClick={() => gridApiRef.current?.exportDataAsCsv({ fileName: exportFileName() })}
           sx={{
             textTransform: 'none',
           }}
