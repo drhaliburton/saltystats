@@ -5,12 +5,11 @@ import Switch from '@mui/material/Switch';
 import Chip from '@mui/material/Chip';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { Lineup, Player } from '../types';
+import { ForcedAssignments, Lineup, Player } from '../types';
 import { PALETTE } from '../theme';
+import { NUM_INNINGS } from '../utils/lineupEngine';
 
 export type LineupGridApiRef = ReturnType<typeof useGridApiRef>;
-
-const INNING_COUNT = 9;
 
 // All derived from the palette: greens for infield/battery, teals for outfield/rover
 const POSITION_COLORS: Record<string, string> = {
@@ -26,9 +25,18 @@ const POSITION_COLORS: Record<string, string> = {
   RF: '#2a9694',
 };
 
-function PositionChip({ value }: { value: string }) {
+const FORCED_COLOR = '#b45309';
+
+function PositionChip({ value, forced }: { value: string; forced?: boolean }) {
   const color = POSITION_COLORS[value];
-  if (!color) {
+  if (!color && value !== 'SIT') {
+    return (
+      <Typography variant="caption" sx={{ color: '#aaa' }}>
+        —
+      </Typography>
+    );
+  }
+  if (value === 'SIT') {
     return (
       <Typography variant="caption" sx={{ color: '#aaa' }}>
         —
@@ -40,7 +48,7 @@ function PositionChip({ value }: { value: string }) {
       label={value}
       size="small"
       sx={{
-        backgroundColor: color,
+        backgroundColor: forced ? FORCED_COLOR : color,
         color: '#fff',
         fontWeight: 600,
         fontSize: '0.7rem',
@@ -55,6 +63,7 @@ interface LineupGridProps {
   roster: Player[];
   orderedPlayers: Player[];
   innings: Lineup;
+  forcedAssignments: ForcedAssignments;
   onToggle: (name: string) => void;
   onPitcherChange: (name: string | null) => void;
   apiRef: LineupGridApiRef;
@@ -74,6 +83,7 @@ export function LineupGrid({
   roster: _roster,
   orderedPlayers,
   innings,
+  forcedAssignments,
   onToggle,
   onPitcherChange,
   apiRef,
@@ -86,7 +96,7 @@ export function LineupGrid({
   const rows: RowData[] = useMemo(() => {
     return orderedPlayers.map((player, idx) => {
       const inningCols: Record<string, string> = {};
-      for (let i = 1; i <= INNING_COUNT; i++) {
+      for (let i = 1; i <= NUM_INNINGS; i++) {
         inningCols[`inning${i}`] = innings[player.name]?.[i - 1] ?? '—';
       }
       return {
@@ -101,7 +111,7 @@ export function LineupGrid({
     });
   }, [orderedPlayers, innings]);
 
-  const inningColumns: GridColDef[] = Array.from({ length: INNING_COUNT }, (_, i) => ({
+  const inningColumns: GridColDef[] = Array.from({ length: NUM_INNINGS }, (_, i) => ({
     field: `inning${i + 1}`,
     headerName: `Inning ${i + 1}`,
     flex: 1,
@@ -109,7 +119,12 @@ export function LineupGrid({
     sortable: false,
     align: 'center' as const,
     headerAlign: 'center' as const,
-    renderCell: ({ value }: GridRenderCellParams) => <PositionChip value={value as string} />,
+    renderCell: ({ value, row }: GridRenderCellParams) => (
+      <PositionChip
+        value={value as string}
+        forced={forcedAssignments[row.name as string]?.[i] ?? false}
+      />
+    ),
   }));
 
   const columns: GridColDef[] = [
@@ -128,33 +143,7 @@ export function LineupGrid({
         />
       ),
     },
-    {
-      field: 'isPitching',
-      headerName: 'Pitching',
-      width: 80,
-      sortable: false,
-      disableExport: true,
-      align: 'center' as const,
-      headerAlign: 'center' as const,
-      renderCell: ({ row }: GridRenderCellParams<RowData>) => {
-        const player = orderedPlayers.find((p) => p.name === row.name);
-        if (!player || player.pitcherPriority === null) return null;
-        const isOn = pitcherName === row.name;
-        return (
-          <Switch
-            checked={isOn}
-            size="small"
-            onChange={() => onPitcherChange(isOn ? null : (row.name as string))}
-            sx={{
-              '& .MuiSwitch-switchBase.Mui-checked': { color: PALETTE.teal },
-              '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                backgroundColor: PALETTE.teal,
-              },
-            }}
-          />
-        );
-      },
-    },
+
     {
       field: 'battingSlot',
       headerName: 'Order',
@@ -178,6 +167,33 @@ export function LineupGrid({
       align: 'center',
       headerAlign: 'center',
     },
+    {
+      field: 'isPitching',
+      headerName: 'Pitching',
+      width: 80,
+      sortable: true,
+      disableExport: true,
+      align: 'center' as const,
+      headerAlign: 'center' as const,
+      renderCell: ({ row }: GridRenderCellParams<RowData>) => {
+        const player = orderedPlayers.find((p) => p.name === row.name);
+        if (!player || player.pitcherPriority === null) return null;
+        const isOn = pitcherName === row.name;
+        return (
+          <Switch
+            checked={isOn}
+            size="small"
+            onChange={() => onPitcherChange(isOn ? null : (row.name as string))}
+            sx={{
+              '& .MuiSwitch-switchBase.Mui-checked': { color: PALETTE.teal },
+              '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                backgroundColor: PALETTE.teal,
+              },
+            }}
+          />
+        );
+      },
+    },
     ...inningColumns,
   ];
 
@@ -192,7 +208,6 @@ export function LineupGrid({
         disableVirtualization
         rowHeight={40}
         initialState={{
-          columns: { columnVisibilityModel: { battingSlot: false } },
           sorting: { sortModel: [{ field: 'battingSlot', sort: 'asc' }] },
         }}
         sx={{

@@ -33,8 +33,8 @@ export default function App() {
     return [...ordered, ...inactive];
   }, [activePlayers, roster]);
 
-  const innings = useMemo(() => {
-    if (!activePlayers.length) return {};
+  const { innings, forced: forcedAssignments } = useMemo(() => {
+    if (!activePlayers.length) return { innings: {}, forced: {} };
     return computeLineup(activePlayers, pitcherOverride);
   }, [activePlayers, pitcherOverride]);
 
@@ -107,6 +107,7 @@ export default function App() {
           roster={roster}
           orderedPlayers={orderedPlayers}
           innings={innings}
+          forcedAssignments={forcedAssignments}
           onToggle={togglePlayer}
           onPitcherChange={setPitcherOverride}
           apiRef={gridApiRef}
