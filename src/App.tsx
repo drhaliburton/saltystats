@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -22,6 +22,7 @@ function exportFileName() {
 export default function App() {
   const { roster, loading, error, togglePlayer } = useRoster();
   const gridApiRef = useGridApiRef();
+  const [pitcherOverride, setPitcherOverride] = useState<string | null>(null);
 
   const activePlayers = useMemo(() => roster.filter((p) => p.active), [roster]);
 
@@ -34,8 +35,8 @@ export default function App() {
 
   const innings = useMemo(() => {
     if (!activePlayers.length) return {};
-    return computeLineup(activePlayers);
-  }, [activePlayers]);
+    return computeLineup(activePlayers, pitcherOverride);
+  }, [activePlayers, pitcherOverride]);
 
   if (loading) {
     return (
@@ -107,6 +108,7 @@ export default function App() {
           orderedPlayers={orderedPlayers}
           innings={innings}
           onToggle={togglePlayer}
+          onPitcherChange={setPitcherOverride}
           apiRef={gridApiRef}
         />
       </Box>

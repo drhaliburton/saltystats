@@ -80,7 +80,7 @@ function assignPositions(
   return assigned;
 }
 
-export function computeLineup(activePlayers: Player[]): Lineup {
+export function computeLineup(activePlayers: Player[], pitcherOverride?: string | null): Lineup {
   const n = activePlayers.length;
   const numSitters = Math.max(0, n - FIELD_SIZE);
 
@@ -99,7 +99,10 @@ export function computeLineup(activePlayers: Player[]): Lineup {
     .filter((p) => p.pitcherPriority != null && !isNaN(p.pitcherPriority))
     .sort((a, b) => (a.pitcherPriority ?? 0) - (b.pitcherPriority ?? 0));
   const byPreference = activePlayers.filter((p) => p.preferredPosition === 'Pitcher');
-  const designatedPitcher = byPriority[0] ?? byPreference[0] ?? null;
+  const overridePlayer = pitcherOverride
+    ? (activePlayers.find((p) => p.name === pitcherOverride) ?? null)
+    : null;
+  const designatedPitcher = overridePlayer ?? byPriority[0] ?? byPreference[0] ?? null;
   const pitchers = new Set<string>(designatedPitcher ? [designatedPitcher.name] : []);
   const nonPitchers = activePlayers.filter((p) => !pitchers.has(p.name));
 

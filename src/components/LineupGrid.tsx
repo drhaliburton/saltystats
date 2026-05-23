@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { DataGrid, GridColDef, GridRenderCellParams, useGridApiRef } from '@mui/x-data-grid';
 import Checkbox from '@mui/material/Checkbox';
+import Switch from '@mui/material/Switch';
 import Chip from '@mui/material/Chip';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -55,6 +56,7 @@ interface LineupGridProps {
   orderedPlayers: Player[];
   innings: Lineup;
   onToggle: (name: string) => void;
+  onPitcherChange: (name: string | null) => void;
   apiRef: LineupGridApiRef;
 }
 
@@ -73,8 +75,14 @@ export function LineupGrid({
   orderedPlayers,
   innings,
   onToggle,
+  onPitcherChange,
   apiRef,
 }: LineupGridProps) {
+  const pitcherName = useMemo(
+    () => orderedPlayers.find((p) => innings[p.name]?.includes('Pitcher'))?.name ?? null,
+    [orderedPlayers, innings]
+  );
+
   const rows: RowData[] = useMemo(() => {
     return orderedPlayers.map((player, idx) => {
       const inningCols: Record<string, string> = {};
@@ -121,6 +129,33 @@ export function LineupGrid({
       ),
     },
     {
+      field: 'isPitching',
+      headerName: 'Pitching',
+      width: 80,
+      sortable: false,
+      disableExport: true,
+      align: 'center' as const,
+      headerAlign: 'center' as const,
+      renderCell: ({ row }: GridRenderCellParams<RowData>) => {
+        const player = orderedPlayers.find((p) => p.name === row.name);
+        if (!player || player.pitcherPriority === null) return null;
+        const isOn = pitcherName === row.name;
+        return (
+          <Switch
+            checked={isOn}
+            size="small"
+            onChange={() => onPitcherChange(isOn ? null : (row.name as string))}
+            sx={{
+              '& .MuiSwitch-switchBase.Mui-checked': { color: PALETTE.teal },
+              '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                backgroundColor: PALETTE.teal,
+              },
+            }}
+          />
+        );
+      },
+    },
+    {
       field: 'battingSlot',
       headerName: 'Order',
       width: 80,
@@ -156,6 +191,10 @@ export function LineupGrid({
         disableColumnMenu
         disableVirtualization
         rowHeight={40}
+        initialState={{
+          columns: { columnVisibilityModel: { battingSlot: false } },
+          sorting: { sortModel: [{ field: 'battingSlot', sort: 'asc' }] },
+        }}
         sx={{
           border: 'none',
           backgroundColor: '#fff',
