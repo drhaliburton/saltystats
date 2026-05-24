@@ -1,7 +1,31 @@
 import { ForcedAssignments, Lineup, Player } from '../types';
 
-const POSITIONS = ['Pitcher', 'Catcher', '1B', '2B', '3B', 'Rover', 'SS', 'LF', 'CF', 'RF'];
-const FIELD_SIZE = 10;
+enum Positions {
+  CATCHER = 'Catcher',
+  FIRST_BASE = '1B',
+  SECOND_BASE = '2B',
+  THIRD_BASE = '3B',
+  SHORTSTOP = 'Rover',
+  SHORT_FIELD = 'SS',
+  LEFT_FIELD = 'LF',
+  CENTER_FIELD = 'CF',
+  RIGHT_FIELD = 'RF',
+  PITCHER = 'Pitcher',
+}
+// 9 defensive positions when the batting team self-pitches (no dedicated pitcher on defense).
+const FIELD_POSITIONS = [
+  Positions.CATCHER,
+  Positions.FIRST_BASE,
+  Positions.SECOND_BASE,
+  Positions.THIRD_BASE,
+  Positions.SHORTSTOP,
+  Positions.SHORT_FIELD,
+  Positions.LEFT_FIELD,
+  Positions.CENTER_FIELD,
+  Positions.RIGHT_FIELD,
+];
+// All 10 positions when a dedicated pitcher is in the lineup.
+const ALL_POSITIONS = [Positions.PITCHER, ...FIELD_POSITIONS];
 export const NUM_INNINGS = 7;
 
 function playerPrefs(player: Player): string[] {
@@ -31,10 +55,12 @@ function selectSitters(
 //   Phase 3: fill remaining open positions. For each open spot, prefer players who list it
 //            (by rank in their list), then players with fewer prior forced assignments to
 //            spread the burden evenly. Only assignments outside a player's list are flagged.
+//            Pitcher is excluded — it's only filled via lockedPositions.
 function assignPositions(
   fielders: Player[],
   didntGetPreferredLastInning: Set<string>,
   forcedCounts: Record<string, number>,
+  positions: string[],
   lockedPositions: Record<string, string> = {}
 ): { assignments: Record<string, string>; forcedNames: Set<string> } {
   const assigned: Record<string, string> = { ...lockedPositions };
@@ -75,12 +101,9 @@ function assignPositions(
     }
   }
 
-  // Phase 3: force-fill any still-open positions.
-  // For each open spot, sort unassigned candidates:
-  //   1. Players who list this position (by rank in their list) — not a forced fill for them.
-  //   2. Players who don't list it, fewest prior forced assignments first (spread the pain).
+  // Phase 3: force-fill any still-open non-Pitcher positions.
   const stillUnassigned = fielders.filter((p) => !assigned[p.name]);
-  const stillOpen = POSITIONS.filter((p) => !taken.has(p) && p !== 'Pitcher');
+  const stillOpen = positions.filter((p) => !taken.has(p) && p !== Positions.PITCHER);
 
   for (const pos of stillOpen) {
     if (stillUnassigned.length === 0) break;
@@ -108,10 +131,15 @@ function assignPositions(
 
 export function computeLineup(
   activePlayers: Player[],
-  pitcherOverride?: string | null
-): { innings: Lineup; forced: ForcedAssignments } {
+  pitcherOverride?: string | null,
+  selfPitching = false
+): { innings: Lineup; forced: ForcedAssignments; pitcher: string | null } {
+  // Self-pitching: batting team provides their own pitcher, so no Pitcher field position.
+  const positions = selfPitching ? FIELD_POSITIONS : ALL_POSITIONS;
+  const fieldSize = positions.length;
+
   const n = activePlayers.length;
-  const numSitters = Math.max(0, n - FIELD_SIZE);
+  const numSitters = Math.max(0, n - fieldSize);
 
   const innings: Lineup = {};
   const forced: ForcedAssignments = {};
@@ -120,7 +148,6 @@ export function computeLineup(
     forced[p.name] = [];
   });
 
-  let lastSitters = new Set<string>();
   let didntGetPreferredLastInning = new Set<string>();
   const sitCounts: Record<string, number> = {};
   const forcedCounts: Record<string, number> = {};
@@ -132,12 +159,14 @@ export function computeLineup(
   const byPriority = activePlayers
     .filter((p) => p.pitcherPriority != null && !isNaN(p.pitcherPriority))
     .sort((a, b) => (a.pitcherPriority ?? 0) - (b.pitcherPriority ?? 0));
-  const byPreference = activePlayers.filter((p) => p.preferredPosition === 'Pitcher');
+  const byPreference = activePlayers.filter((p) => p.preferredPosition === Positions.PITCHER);
   const overridePlayer = pitcherOverride
     ? (activePlayers.find((p) => p.name === pitcherOverride) ?? null)
     : null;
   const designatedPitcher = overridePlayer ?? byPriority[0] ?? byPreference[0] ?? null;
-  const pitchers = new Set<string>(designatedPitcher ? [designatedPitcher.name] : []);
+  const pitchers = new Set<string>(
+    designatedPitcher && !selfPitching ? [designatedPitcher.name] : []
+  );
   const nonPitchers = activePlayers.filter((p) => !pitchers.has(p.name));
 
   for (let i = 0; i < NUM_INNINGS; i++) {
@@ -145,14 +174,15 @@ export function computeLineup(
 
     // Swap in any sitter who is the only person listing an otherwise-uncovered position.
     // Replace the most-flexible fielder (most alts) who doesn't list that position.
-    for (let _pass = 0; _pass < POSITIONS.length; _pass++) {
-      const curFielders = activePlayers.filter((p) => !sitters.has(p.name));
+    for (let _pass = 0; _pass < positions.length; _pass++) {
+      const currentSitters = sitters;
+      const curFielders = activePlayers.filter((p) => !currentSitters.has(p.name));
       const covered = new Set(curFielders.flatMap((p) => playerPrefs(p)));
-      const uncovered = POSITIONS.find((pos) => pos !== 'Pitcher' && !covered.has(pos));
+      const uncovered = positions.find((pos) => pos !== Positions.PITCHER && !covered.has(pos));
       if (!uncovered) break;
 
       const sitterCover = [...sitters]
-        .map((n) => activePlayers.find((p) => p.name === n)!)
+        .map((name) => activePlayers.find((p) => p.name === name)!)
         .filter((p) => p && !pitchers.has(p.name) && playerPrefs(p).includes(uncovered))
         .sort((a, b) => (sitCounts[a.name] ?? 0) - (sitCounts[b.name] ?? 0))[0];
       if (!sitterCover) break;
@@ -166,7 +196,7 @@ export function computeLineup(
         )[0];
       if (!swapOut) break;
 
-      sitters = new Set([...sitters].filter((n) => n !== sitterCover.name));
+      sitters = new Set([...sitters].filter((name) => name !== sitterCover.name));
       sitters.add(swapOut.name);
     }
 
@@ -192,18 +222,32 @@ export function computeLineup(
       }
     }
 
+    // Hard rule: every position must be filled every inning. If sitter adjustments
+    // pushed too many players to the bench, return the most-rested sitters to the field.
+    const maxSitters = n - fieldSize;
+    if (sitters.size > maxSitters) {
+      const overflow = [...sitters]
+        .map((name) => activePlayers.find((p) => p.name === name)!)
+        .filter(Boolean)
+        .sort((a, b) => (sitCounts[b.name] ?? 0) - (sitCounts[a.name] ?? 0))
+        .slice(0, sitters.size - maxSitters)
+        .map((p) => p.name);
+      const overflowSet = new Set(overflow);
+      sitters = new Set([...sitters].filter((name) => !overflowSet.has(name)));
+    }
+
     sitters.forEach((name) => sitCounts[name]++);
 
     const fielders = activePlayers.filter((p) => !sitters.has(p.name));
 
-    const lockedPositions: Record<string, string> = designatedPitcher
-      ? { [designatedPitcher.name]: 'Pitcher' }
-      : {};
+    const lockedPositions: Record<string, string> =
+      designatedPitcher && !selfPitching ? { [designatedPitcher.name]: Positions.PITCHER } : {};
 
-    const { assignments: positions, forcedNames } = assignPositions(
+    const { assignments: positionMap, forcedNames } = assignPositions(
       fielders,
       didntGetPreferredLastInning,
       forcedCounts,
+      positions,
       lockedPositions
     );
 
@@ -212,12 +256,10 @@ export function computeLineup(
         innings[p.name].push('SIT');
         forced[p.name].push(false);
       } else {
-        innings[p.name].push(positions[p.name] ?? '—');
+        innings[p.name].push(positionMap[p.name] ?? '—');
         forced[p.name].push(forcedNames.has(p.name));
       }
     });
-
-    lastSitters = sitters;
 
     // Update forcedCounts for next inning's Phase 3 sorting.
     forcedNames.forEach((name) => {
@@ -225,7 +267,7 @@ export function computeLineup(
     });
 
     const fieldedAndMissed = new Set(
-      fielders.filter((p) => positions[p.name] !== p.preferredPosition).map((p) => p.name)
+      fielders.filter((p) => positionMap[p.name] !== p.preferredPosition).map((p) => p.name)
     );
     const priorityRetained = new Set(
       [...didntGetPreferredLastInning].filter((name) => sitters.has(name))
@@ -233,5 +275,5 @@ export function computeLineup(
     didntGetPreferredLastInning = new Set([...fieldedAndMissed, ...priorityRetained]);
   }
 
-  return { innings, forced };
+  return { innings, forced, pitcher: designatedPitcher?.name ?? null };
 }
