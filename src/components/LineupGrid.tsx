@@ -66,6 +66,9 @@ interface LineupGridProps {
   forcedAssignments: ForcedAssignments;
   onToggle: (name: string) => void;
   onPitcherChange: (name: string | null) => void;
+  pitcherOverride: string | null;
+  autoPitcher: string | null;
+  selfPitching: boolean;
   apiRef: LineupGridApiRef;
 }
 
@@ -86,11 +89,19 @@ export function LineupGrid({
   forcedAssignments,
   onToggle,
   onPitcherChange,
+  pitcherOverride,
+  autoPitcher,
+  selfPitching,
   apiRef,
 }: LineupGridProps) {
+  // In self-pitching mode no one is assigned the Pitcher field position, so drive the
+  // toggle from pitcherOverride directly. In normal mode derive it from the innings.
   const pitcherName = useMemo(
-    () => orderedPlayers.find((p) => innings[p.name]?.includes('Pitcher'))?.name ?? null,
-    [orderedPlayers, innings]
+    () =>
+      selfPitching
+        ? (pitcherOverride ?? autoPitcher)
+        : (orderedPlayers.find((p) => innings[p.name]?.includes('Pitcher'))?.name ?? null),
+    [selfPitching, pitcherOverride, autoPitcher, orderedPlayers, innings]
   );
 
   const rows: RowData[] = useMemo(() => {
@@ -168,8 +179,8 @@ export function LineupGrid({
       headerAlign: 'center',
     },
     {
-      field: 'isPitching',
-      headerName: 'Pitching',
+      field: 'pitcher',
+      headerName: 'Pitcher',
       width: 80,
       sortable: true,
       disableExport: true,
@@ -178,6 +189,9 @@ export function LineupGrid({
       renderCell: ({ row }: GridRenderCellParams<RowData>) => {
         const player = orderedPlayers.find((p) => p.name === row.name);
         if (!player || player.pitcherPriority === null) return null;
+        if (selfPitching) {
+          return '✓';
+        }
         const isOn = pitcherName === row.name;
         return (
           <Switch
