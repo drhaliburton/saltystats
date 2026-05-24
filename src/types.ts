@@ -13,3 +13,4 @@ export interface Player {
 }
 
 export type Lineup = Record<string, string[]>;
+export type ForcedAssignments = Record<string, boolean[]>;

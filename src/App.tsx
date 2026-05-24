@@ -1,9 +1,11 @@
-import React, { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
+import Button from '@mui/material/Button';
+import { useGridApiRef } from '@mui/x-data-grid';
 import { LineupGrid } from './components/LineupGrid';
 import { useRoster } from './hooks/useRoster';
 import { computeLineup } from './utils/lineupEngine';
@@ -11,8 +13,16 @@ import { computeBattingOrder } from './utils/battingOrderEngine';
 import { PALETTE } from './theme';
 import { Player } from './types';
 
+function exportFileName() {
+  const d = new Date();
+  const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return `salty-order-${date}`;
+}
+
 export default function App() {
   const { roster, loading, error, togglePlayer } = useRoster();
+  const gridApiRef = useGridApiRef();
+  const [pitcherOverride, setPitcherOverride] = useState<string | null>(null);
 
   const activePlayers = useMemo(() => roster.filter((p) => p.active), [roster]);
 
@@ -23,10 +33,10 @@ export default function App() {
     return [...ordered, ...inactive];
   }, [activePlayers, roster]);
 
-  const innings = useMemo(() => {
-    if (!activePlayers.length) return {};
-    return computeLineup(activePlayers);
-  }, [activePlayers]);
+  const { innings, forced: forcedAssignments } = useMemo(() => {
+    if (!activePlayers.length) return { innings: {}, forced: {} };
+    return computeLineup(activePlayers, pitcherOverride);
+  }, [activePlayers, pitcherOverride]);
 
   if (loading) {
     return (
@@ -54,7 +64,6 @@ export default function App() {
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: '#edf8f9' }}>
-      {/* Header banner */}
       <Box
         sx={{
           backgroundColor: PALETTE.black,
@@ -68,20 +77,40 @@ export default function App() {
         <Typography variant="h5" sx={{ fontWeight: 700, color: PALETTE.lightTeal, flexGrow: 1 }}>
           Salty Stats 🥎
         </Typography>
+
         <Chip
           label={`${activePlayers.length} active`}
           size="small"
-          sx={{ backgroundColor: PALETTE.teal, color: PALETTE.black, fontWeight: 600 }}
+          sx={{
+            backgroundColor: activePlayers.length >= 10 ? PALETTE.teal : '#e57373',
+            fontWeight: 600,
+          }}
         />
+
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={() =>
+            gridApiRef.current?.exportDataAsCsv({
+              fileName: exportFileName(),
+              getRowsToExport: () => orderedPlayers.filter((p) => p.active).map((p) => p.name),
+            })
+          }
+          sx={{ textTransform: 'none' }}
+        >
+          Export .csv
+        </Button>
       </Box>
 
-      {/* Content */}
       <Box sx={{ p: 3 }}>
         <LineupGrid
           roster={roster}
           orderedPlayers={orderedPlayers}
           innings={innings}
+          forcedAssignments={forcedAssignments}
           onToggle={togglePlayer}
+          onPitcherChange={setPitcherOverride}
+          apiRef={gridApiRef}
         />
       </Box>
     </Box>

@@ -1,43 +1,54 @@
 import React, { useMemo } from 'react';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridRenderCellParams, useGridApiRef } from '@mui/x-data-grid';
 import Checkbox from '@mui/material/Checkbox';
+import Switch from '@mui/material/Switch';
 import Chip from '@mui/material/Chip';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { Lineup, Player } from '../types';
+import { ForcedAssignments, Lineup, Player } from '../types';
 import { PALETTE } from '../theme';
+import { NUM_INNINGS } from '../utils/lineupEngine';
 
-const INNING_COUNT = 9;
+export type LineupGridApiRef = ReturnType<typeof useGridApiRef>;
 
 // All derived from the palette: greens for infield/battery, teals for outfield/rover
 const POSITION_COLORS: Record<string, string> = {
-  SIT: '#9e9e9e',
-  Pitcher: PALETTE.black, // most distinctive — the ace
-  Catcher: '#1f4e32', // deep sage
-  '1B': '#2d6a46', // dark sage
-  '2B': '#3d7d57', // medium sage
-  '3B': '#4f9169', // lighter sage (still readable)
-  Rover: '#1a7878', // distinct teal, separate from outfield
-  SS: '#0f5e5e', // dark teal
-  LF: '#1e7b79', // medium teal
-  CF: '#258f8d', // brighter teal
-  RF: '#2a9694', // lighter teal
+  Pitcher: PALETTE.black,
+  Catcher: '#1f4e32',
+  '1B': '#2d6a46',
+  '2B': '#3d7d57',
+  '3B': '#4f9169',
+  Rover: '#1a7878',
+  SS: '#0f5e5e',
+  LF: '#1e7b79',
+  CF: '#258f8d',
+  RF: '#2a9694',
 };
 
-function PositionChip({ value }: { value: string }) {
-  const color = POSITION_COLORS[value] ?? '#424242';
-  if (value === 'SIT')
+const FORCED_COLOR = '#b45309';
+
+function PositionChip({ value, forced }: { value: string; forced?: boolean }) {
+  const color = POSITION_COLORS[value];
+  if (!color && value !== 'SIT') {
     return (
       <Typography variant="caption" sx={{ color: '#aaa' }}>
         —
       </Typography>
     );
+  }
+  if (value === 'SIT') {
+    return (
+      <Typography variant="caption" sx={{ color: '#aaa' }}>
+        —
+      </Typography>
+    );
+  }
   return (
     <Chip
       label={value}
       size="small"
       sx={{
-        backgroundColor: color,
+        backgroundColor: forced ? FORCED_COLOR : color,
         color: '#fff',
         fontWeight: 600,
         fontSize: '0.7rem',
@@ -52,7 +63,10 @@ interface LineupGridProps {
   roster: Player[];
   orderedPlayers: Player[];
   innings: Lineup;
+  forcedAssignments: ForcedAssignments;
   onToggle: (name: string) => void;
+  onPitcherChange: (name: string | null) => void;
+  apiRef: LineupGridApiRef;
 }
 
 interface RowData {
@@ -69,12 +83,20 @@ export function LineupGrid({
   roster: _roster,
   orderedPlayers,
   innings,
+  forcedAssignments,
   onToggle,
+  onPitcherChange,
+  apiRef,
 }: LineupGridProps) {
+  const pitcherName = useMemo(
+    () => orderedPlayers.find((p) => innings[p.name]?.includes('Pitcher'))?.name ?? null,
+    [orderedPlayers, innings]
+  );
+
   const rows: RowData[] = useMemo(() => {
     return orderedPlayers.map((player, idx) => {
       const inningCols: Record<string, string> = {};
-      for (let i = 1; i <= INNING_COUNT; i++) {
+      for (let i = 1; i <= NUM_INNINGS; i++) {
         inningCols[`inning${i}`] = innings[player.name]?.[i - 1] ?? '—';
       }
       return {
@@ -89,7 +111,7 @@ export function LineupGrid({
     });
   }, [orderedPlayers, innings]);
 
-  const inningColumns: GridColDef[] = Array.from({ length: INNING_COUNT }, (_, i) => ({
+  const inningColumns: GridColDef[] = Array.from({ length: NUM_INNINGS }, (_, i) => ({
     field: `inning${i + 1}`,
     headerName: `Inning ${i + 1}`,
     flex: 1,
@@ -97,7 +119,12 @@ export function LineupGrid({
     sortable: false,
     align: 'center' as const,
     headerAlign: 'center' as const,
-    renderCell: ({ value }: GridRenderCellParams) => <PositionChip value={value as string} />,
+    renderCell: ({ value, row }: GridRenderCellParams) => (
+      <PositionChip
+        value={value as string}
+        forced={forcedAssignments[row.name as string]?.[i] ?? false}
+      />
+    ),
   }));
 
   const columns: GridColDef[] = [
@@ -106,6 +133,7 @@ export function LineupGrid({
       headerName: '',
       width: 50,
       sortable: false,
+      disableExport: true,
       renderCell: ({ row }: GridRenderCellParams<RowData>) => (
         <Checkbox
           checked={row.active as boolean}
@@ -115,11 +143,11 @@ export function LineupGrid({
         />
       ),
     },
+
     {
       field: 'battingSlot',
       headerName: 'Order',
       width: 80,
-      sortable: false,
     },
     {
       field: 'name',
@@ -138,7 +166,33 @@ export function LineupGrid({
       width: 80,
       align: 'center',
       headerAlign: 'center',
-      sortable: false,
+    },
+    {
+      field: 'isPitching',
+      headerName: 'Pitching',
+      width: 80,
+      sortable: true,
+      disableExport: true,
+      align: 'center' as const,
+      headerAlign: 'center' as const,
+      renderCell: ({ row }: GridRenderCellParams<RowData>) => {
+        const player = orderedPlayers.find((p) => p.name === row.name);
+        if (!player || player.pitcherPriority === null) return null;
+        const isOn = pitcherName === row.name;
+        return (
+          <Switch
+            checked={isOn}
+            size="small"
+            onChange={() => onPitcherChange(isOn ? null : (row.name as string))}
+            sx={{
+              '& .MuiSwitch-switchBase.Mui-checked': { color: PALETTE.teal },
+              '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                backgroundColor: PALETTE.teal,
+              },
+            }}
+          />
+        );
+      },
     },
     ...inningColumns,
   ];
@@ -146,11 +200,16 @@ export function LineupGrid({
   return (
     <Box sx={{ width: '100%', borderRadius: 2, overflow: 'hidden', boxShadow: 1 }}>
       <DataGrid
+        apiRef={apiRef}
         rows={rows}
         columns={columns}
         hideFooter
         disableColumnMenu
+        disableVirtualization
         rowHeight={40}
+        initialState={{
+          sorting: { sortModel: [{ field: 'battingSlot', sort: 'asc' }] },
+        }}
         sx={{
           border: 'none',
           backgroundColor: '#fff',
