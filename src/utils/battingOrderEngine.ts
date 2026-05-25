@@ -1,4 +1,5 @@
 import { Player } from '../types';
+import { seededShuffle } from './shuffle';
 
 const gender = (p: Player): 'f' | 'm' => (p.gender?.toLowerCase() === 'f' ? 'f' : 'm');
 
@@ -70,15 +71,16 @@ function buildGenderSequence(nF: number, nM: number): ('f' | 'm')[] {
   return buildSeqFrom(nF, nM, majority); // best effort for unsatisfiable ratios
 }
 
-export function computeBattingOrder(activePlayers: Player[]): Player[] {
+export function computeBattingOrder(activePlayers: Player[], seed?: number): Player[] {
   if (activePlayers.length === 0) return [];
 
-  const females = activePlayers
-    .filter((p) => gender(p) === 'f')
-    .sort((a, b) => b.battingPower - a.battingPower);
-  const males = activePlayers
-    .filter((p) => gender(p) === 'm')
-    .sort((a, b) => b.battingPower - a.battingPower);
+  const orderWithin = <T extends Player>(arr: T[]): T[] =>
+    seed !== undefined
+      ? seededShuffle(arr, seed)
+      : [...arr].sort((a, b) => b.battingPower - a.battingPower);
+
+  const females = orderWithin(activePlayers.filter((p) => gender(p) === 'f'));
+  const males = orderWithin(activePlayers.filter((p) => gender(p) === 'm'));
 
   // Build the gender sequence first, independent of batting power, so neither gender
   // can pile up at the end regardless of the power distribution across genders.
