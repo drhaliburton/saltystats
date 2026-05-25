@@ -124,7 +124,7 @@ export function LineupGrid({
 
   const inningColumns: GridColDef[] = Array.from({ length: NUM_INNINGS }, (_, i) => ({
     field: `inning${i + 1}`,
-    headerName: `Inning ${i + 1}`,
+    headerName: `${i + 1}`,
     flex: 1,
     minWidth: 70,
     sortable: false,

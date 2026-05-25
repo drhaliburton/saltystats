@@ -76,10 +76,11 @@ function assignPositions(
   const phase1Players = [...priority, ...forcedPriority].sort(
     (a, b) => (forcedCounts[b.name] ?? 0) - (forcedCounts[a.name] ?? 0)
   );
+  const validPositions = new Set(positions);
   for (const player of phase1Players) {
     if (assigned[player.name]) continue;
     const pref = player.preferredPosition;
-    if (pref && !taken.has(pref)) {
+    if (pref && validPositions.has(pref) && !taken.has(pref)) {
       assigned[player.name] = pref;
       taken.add(pref);
     }
@@ -93,7 +94,7 @@ function assignPositions(
   for (let tier = 0; tier < 4; tier++) {
     for (const player of allPlayers) {
       if (assigned[player.name]) continue;
-      const prefList = playerPrefs(player);
+      const prefList = playerPrefs(player).filter((p) => validPositions.has(p));
       if (tier < prefList.length && !taken.has(prefList[tier])) {
         assigned[player.name] = prefList[tier];
         taken.add(prefList[tier]);
