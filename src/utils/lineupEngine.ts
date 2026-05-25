@@ -35,13 +35,16 @@ function playerPrefs(player: Player): string[] {
 function selectSitters(
   activePlayers: Player[],
   numSitters: number,
-  sitCounts: Record<string, number>
+  sitCounts: Record<string, number>,
+  forcedCounts: Record<string, number>
 ): Set<string> {
   if (numSitters === 0) return new Set();
 
-  const sorted = [...activePlayers].sort(
-    (a, b) => (sitCounts[a.name] ?? 0) - (sitCounts[b.name] ?? 0)
-  );
+  const sorted = [...activePlayers].sort((a, b) => {
+    const sitDiff = (sitCounts[a.name] ?? 0) - (sitCounts[b.name] ?? 0);
+    if (sitDiff !== 0) return sitDiff;
+    return (forcedCounts[b.name] ?? 0) - (forcedCounts[a.name] ?? 0);
+  });
 
   return new Set(sorted.slice(0, numSitters).map((p) => p.name));
 }
@@ -79,10 +82,17 @@ function assignPositions(
   const validPositions = new Set(positions);
   for (const player of phase1Players) {
     if (assigned[player.name]) continue;
-    const pref = player.preferredPosition;
-    if (pref && validPositions.has(pref) && !taken.has(pref)) {
-      assigned[player.name] = pref;
-      taken.add(pref);
+    const tryList = (
+      (forcedCounts[player.name] ?? 0) > 0
+        ? playerPrefs(player)
+        : [player.preferredPosition].filter(Boolean)
+    ).filter((p) => validPositions.has(p));
+    for (const pref of tryList) {
+      if (!taken.has(pref)) {
+        assigned[player.name] = pref;
+        taken.add(pref);
+        break;
+      }
     }
   }
 
@@ -171,7 +181,7 @@ export function computeLineup(
   const nonPitchers = activePlayers.filter((p) => !pitchers.has(p.name));
 
   for (let i = 0; i < NUM_INNINGS; i++) {
-    let sitters = selectSitters(nonPitchers, numSitters, sitCounts);
+    let sitters = selectSitters(nonPitchers, numSitters, sitCounts, forcedCounts);
 
     // Swap in any sitter who is the only person listing an otherwise-uncovered position.
     // Replace the most-flexible fielder (most alts) who doesn't list that position.
