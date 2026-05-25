@@ -1,4 +1,5 @@
 import { ForcedAssignments, Lineup, Player } from '../types';
+import { seededShuffle } from './shuffle';
 
 enum Positions {
   CATCHER = 'Catcher',
@@ -143,7 +144,8 @@ function assignPositions(
 export function computeLineup(
   activePlayers: Player[],
   pitcherOverride?: string | null,
-  selfPitching = false
+  selfPitching = false,
+  seed?: number
 ): { innings: Lineup; forced: ForcedAssignments; pitcher: string | null } {
   // Self-pitching: batting team provides their own pitcher, so no Pitcher field position.
   const positions = selfPitching ? FIELD_POSITIONS : ALL_POSITIONS;
@@ -178,16 +180,19 @@ export function computeLineup(
   const pitchers = new Set<string>(
     designatedPitcher && !selfPitching ? [designatedPitcher.name] : []
   );
-  const nonPitchers = activePlayers.filter((p) => !pitchers.has(p.name));
-
   for (let i = 0; i < NUM_INNINGS; i++) {
-    let sitters = selectSitters(nonPitchers, numSitters, sitCounts, forcedCounts);
+    // Shuffle player order each inning when a seed is provided so tiebreaking is randomised.
+    const inningPlayers =
+      seed !== undefined ? seededShuffle(activePlayers, seed ^ (i * 0x9e3779b9)) : activePlayers;
+    const inningNonPitchers = inningPlayers.filter((p) => !pitchers.has(p.name));
+
+    let sitters = selectSitters(inningNonPitchers, numSitters, sitCounts, forcedCounts);
 
     // Swap in any sitter who is the only person listing an otherwise-uncovered position.
     // Replace the most-flexible fielder (most alts) who doesn't list that position.
     for (let _pass = 0; _pass < positions.length; _pass++) {
       const currentSitters = sitters;
-      const curFielders = activePlayers.filter((p) => !currentSitters.has(p.name));
+      const curFielders = inningPlayers.filter((p) => !currentSitters.has(p.name));
       const covered = new Set(curFielders.flatMap((p) => playerPrefs(p)));
       const uncovered = positions.find((pos) => pos !== Positions.PITCHER && !covered.has(pos));
       if (!uncovered) break;
@@ -213,12 +218,12 @@ export function computeLineup(
 
     // Enforce max 4 women on the field, but skip the rule for a woman if forcing her to sit
     // would give her more than 2 extra sit-outs vs the least-rested non-pitcher player.
-    const fieldingWomen = activePlayers.filter(
+    const fieldingWomen = inningPlayers.filter(
       (p) => !sitters.has(p.name) && p.gender.toLowerCase() === 'f'
     );
     if (fieldingWomen.length > 4) {
       const excess = fieldingWomen.length - 4;
-      const minSitCount = Math.min(...nonPitchers.map((p) => sitCounts[p.name] ?? 0));
+      const minSitCount = Math.min(...inningNonPitchers.map((p) => sitCounts[p.name] ?? 0));
       const candidates = fieldingWomen
         .filter((p) => !pitchers.has(p.name))
         .sort((a, b) => (sitCounts[a.name] ?? 0) - (sitCounts[b.name] ?? 0));
@@ -249,7 +254,7 @@ export function computeLineup(
 
     sitters.forEach((name) => sitCounts[name]++);
 
-    const fielders = activePlayers.filter((p) => !sitters.has(p.name));
+    const fielders = inningPlayers.filter((p) => !sitters.has(p.name));
 
     const lockedPositions: Record<string, string> =
       designatedPitcher && !selfPitching ? { [designatedPitcher.name]: Positions.PITCHER } : {};

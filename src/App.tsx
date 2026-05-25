@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -26,15 +26,27 @@ export default function App() {
   const gridApiRef = useGridApiRef();
   const [selfPitching, setSelfPitching] = useState(true);
   const [pitcherOverride, setPitcherOverride] = useState<string | null>(null);
+  const [shuffleSeed, setShuffleSeed] = useState<number | undefined>(() => {
+    const stored = localStorage.getItem('salty-shuffle-seed');
+    return stored !== null ? Number(stored) : undefined;
+  });
+
+  useEffect(() => {
+    if (shuffleSeed !== undefined) {
+      localStorage.setItem('salty-shuffle-seed', String(shuffleSeed));
+    } else {
+      localStorage.removeItem('salty-shuffle-seed');
+    }
+  }, [shuffleSeed]);
 
   const activePlayers = useMemo(() => roster.filter((p) => p.active), [roster]);
 
   const orderedPlayers = useMemo((): Player[] => {
     if (!activePlayers.length) return roster;
-    const ordered = computeBattingOrder(activePlayers);
+    const ordered = computeBattingOrder(activePlayers, shuffleSeed);
     const inactive = roster.filter((p) => !p.active).map((p) => ({ ...p, battingSlot: undefined }));
     return [...ordered, ...inactive];
-  }, [activePlayers, roster]);
+  }, [activePlayers, roster, shuffleSeed]);
 
   const {
     innings,
@@ -42,8 +54,8 @@ export default function App() {
     pitcher: autoPitcher,
   } = useMemo(() => {
     if (!activePlayers.length) return { innings: {}, forced: {}, pitcher: null };
-    return computeLineup(activePlayers, pitcherOverride, selfPitching);
-  }, [activePlayers, pitcherOverride, selfPitching]);
+    return computeLineup(activePlayers, pitcherOverride, selfPitching, shuffleSeed);
+  }, [activePlayers, pitcherOverride, selfPitching, shuffleSeed]);
 
   if (loading) {
     return (
@@ -78,58 +90,66 @@ export default function App() {
           py: 2,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'right',
+          justifyContent: 'space-between',
           gap: 2,
         }}
       >
-        <Chip
-          label={`${activePlayers.length} active`}
-          size="small"
-          sx={{
-            backgroundColor: activePlayers.length >= 10 ? PALETTE.teal : '#e57373',
-            fontWeight: 600,
-          }}
-        />
-        {/* <Typography variant="h5" sx={{ fontWeight: 700, color: PALETTE.lightTeal, flexGrow: 1 }}>
-          Salty Stats 🥎
-        </Typography> */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Chip
+            label={`${activePlayers.length} active`}
+            size="small"
+            sx={{
+              backgroundColor: activePlayers.length >= 10 ? PALETTE.teal : '#e57373',
+              fontWeight: 600,
+            }}
+          />
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={selfPitching}
+                onChange={(e) => setSelfPitching(e.target.checked)}
+                size="small"
+                sx={{
+                  '& .MuiSwitch-switchBase.Mui-checked': { color: PALETTE.lightTeal },
+                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                    backgroundColor: PALETTE.lightTeal,
+                  },
+                }}
+              />
+            }
+            label={
+              <Typography variant="body2" sx={{ color: '#fff', whiteSpace: 'nowrap' }}>
+                Self-pitching?
+              </Typography>
+            }
+            labelPlacement="start"
+            sx={{ m: 0 }}
+          />
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => setShuffleSeed(Math.floor(Math.random() * 2 ** 32))}
+            sx={{ textTransform: 'none' }}
+          >
+            Shuffle
+          </Button>
 
-        <FormControlLabel
-          control={
-            <Switch
-              checked={selfPitching}
-              onChange={(e) => setSelfPitching(e.target.checked)}
-              size="small"
-              sx={{
-                '& .MuiSwitch-switchBase.Mui-checked': { color: PALETTE.lightTeal },
-                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                  backgroundColor: PALETTE.lightTeal,
-                },
-              }}
-            />
-          }
-          label={
-            <Typography variant="body2" sx={{ color: '#fff', whiteSpace: 'nowrap' }}>
-              Self-pitching?
-            </Typography>
-          }
-          labelPlacement="start"
-          sx={{ m: 0 }}
-        />
-
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={() =>
-            gridApiRef.current?.exportDataAsCsv({
-              fileName: exportFileName(),
-              getRowsToExport: () => orderedPlayers.filter((p) => p.active).map((p) => p.name),
-            })
-          }
-          sx={{ textTransform: 'none' }}
-        >
-          Export .csv
-        </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() =>
+              gridApiRef.current?.exportDataAsCsv({
+                fileName: exportFileName(),
+                getRowsToExport: () => orderedPlayers.filter((p) => p.active).map((p) => p.name),
+              })
+            }
+            sx={{ textTransform: 'none' }}
+          >
+            Export .csv
+          </Button>
+        </Box>
       </Box>
 
       <Box>
