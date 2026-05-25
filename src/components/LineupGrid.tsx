@@ -236,6 +236,7 @@ export function LineupGrid({
         disableColumnMenu
         disableVirtualization
         rowHeight={40}
+        columnHeaderHeight={47}
         initialState={{
           sorting: { sortModel: [{ field: 'battingSlot', sort: 'asc' }] },
         }}

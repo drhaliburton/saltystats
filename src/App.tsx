@@ -86,8 +86,9 @@ export default function App() {
       <Box
         sx={{
           backgroundColor: '#102221',
-          px: 3,
-          py: 2,
+          px: 1.5,
+          py: 1,
+          height: '47px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
