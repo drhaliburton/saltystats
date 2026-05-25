@@ -1,10 +1,10 @@
 {
   "files": {
-    "main.js": "/saltystats/static/js/main.37728bd8.js",
+    "main.js": "/saltystats/static/js/main.4c68ceef.js",
     "index.html": "/saltystats/index.html",
-    "main.37728bd8.js.map": "/saltystats/static/js/main.37728bd8.js.map"
+    "main.4c68ceef.js.map": "/saltystats/static/js/main.4c68ceef.js.map"
   },
   "entrypoints": [
-    "static/js/main.37728bd8.js"
+    "static/js/main.4c68ceef.js"
   ]
 }
