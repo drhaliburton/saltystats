@@ -227,7 +227,7 @@ export function LineupGrid({
   ];
 
   return (
-    <Box sx={{ width: '100%', overflow: 'hidden' }}>
+    <Box sx={{ width: '100%', overflow: 'hidden', pb: 1 }}>
       <DataGrid
         apiRef={apiRef}
         rows={rows}
