@@ -43,10 +43,10 @@ export default function App() {
 
   const orderedPlayers = useMemo((): Player[] => {
     if (!activePlayers.length) return roster;
-    const ordered = computeBattingOrder(activePlayers, shuffleSeed);
+    const ordered = computeBattingOrder(activePlayers);
     const inactive = roster.filter((p) => !p.active).map((p) => ({ ...p, battingSlot: undefined }));
     return [...ordered, ...inactive];
-  }, [activePlayers, roster, shuffleSeed]);
+  }, [activePlayers, roster]);
 
   const {
     innings,
