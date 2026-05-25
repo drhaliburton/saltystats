@@ -182,7 +182,7 @@ export function LineupGrid({
       field: 'pitcher',
       headerName: 'Pitcher',
       width: 80,
-      sortable: true,
+      sortable: false,
       disableExport: true,
       align: 'center' as const,
       headerAlign: 'center' as const,
@@ -212,7 +212,7 @@ export function LineupGrid({
   ];
 
   return (
-    <Box sx={{ width: '100%', borderRadius: 2, overflow: 'hidden', boxShadow: 1 }}>
+    <Box sx={{ width: '100%', overflow: 'hidden' }}>
       <DataGrid
         apiRef={apiRef}
         rows={rows}
@@ -226,11 +226,12 @@ export function LineupGrid({
         }}
         sx={{
           border: 'none',
+          borderRadius: 0,
           backgroundColor: '#fff',
           '& .MuiDataGrid-row.inactive': { opacity: 0.45 },
           '& .MuiDataGrid-columnHeader': {
-            backgroundColor: PALETTE.black,
-            color: PALETTE.lightTeal,
+            backgroundColor: '#204544',
+            color: 'white',
             fontWeight: 700,
           },
           '& .MuiDataGrid-columnSeparator': { display: 'none' },

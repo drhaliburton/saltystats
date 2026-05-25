@@ -73,17 +73,26 @@ export default function App() {
     <Box sx={{ minHeight: '100vh', backgroundColor: '#edf8f9' }}>
       <Box
         sx={{
-          backgroundColor: PALETTE.black,
+          backgroundColor: '#102221',
           px: 3,
           py: 2,
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'right',
           gap: 2,
         }}
       >
-        <Typography variant="h5" sx={{ fontWeight: 700, color: PALETTE.lightTeal, flexGrow: 1 }}>
+        <Chip
+          label={`${activePlayers.length} active`}
+          size="small"
+          sx={{
+            backgroundColor: activePlayers.length >= 10 ? PALETTE.teal : '#e57373',
+            fontWeight: 600,
+          }}
+        />
+        {/* <Typography variant="h5" sx={{ fontWeight: 700, color: PALETTE.lightTeal, flexGrow: 1 }}>
           Salty Stats 🥎
-        </Typography>
+        </Typography> */}
 
         <FormControlLabel
           control={
@@ -108,15 +117,6 @@ export default function App() {
           sx={{ m: 0 }}
         />
 
-        <Chip
-          label={`${activePlayers.length} active`}
-          size="small"
-          sx={{
-            backgroundColor: activePlayers.length >= 10 ? PALETTE.teal : '#e57373',
-            fontWeight: 600,
-          }}
-        />
-
         <Button
           size="small"
           variant="outlined"
@@ -132,7 +132,7 @@ export default function App() {
         </Button>
       </Box>
 
-      <Box sx={{ p: 3 }}>
+      <Box>
         <LineupGrid
           roster={roster}
           orderedPlayers={orderedPlayers}
