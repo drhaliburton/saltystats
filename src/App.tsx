@@ -82,7 +82,7 @@ export default function App() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#edf8f9' }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: '#edf8f9', overscrollBehavior: 'none' }}>
       <Box
         sx={{
           backgroundColor: '#102221',
