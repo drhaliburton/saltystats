@@ -31,4 +31,11 @@ export const theme = createTheme({
   typography: {
     fontFamily: '"Inter", "Roboto", sans-serif',
   },
+  components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        'html, body': { overscrollBehavior: 'none' },
+      },
+    },
+  },
 });
