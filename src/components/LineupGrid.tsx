@@ -104,6 +104,14 @@ export function LineupGrid({
     [selfPitching, pitcherOverride, autoPitcher, orderedPlayers, innings]
   );
 
+  const eligiblePitchers = useMemo(
+    () =>
+      orderedPlayers
+        .filter((p) => p.active && p.pitcherPriority != null && !isNaN(p.pitcherPriority))
+        .sort((a, b) => (a.pitcherPriority ?? 0) - (b.pitcherPriority ?? 0)),
+    [orderedPlayers]
+  );
+
   const rows: RowData[] = useMemo(() => {
     return orderedPlayers.map((player, idx) => {
       const inningCols: Record<string, string> = {};
@@ -197,7 +205,14 @@ export function LineupGrid({
           <Switch
             checked={isOn}
             size="small"
-            onChange={() => onPitcherChange(isOn ? null : (row.name as string))}
+            onChange={() => {
+              if (isOn) {
+                const next = eligiblePitchers.find((p) => p.name !== row.name)?.name ?? null;
+                onPitcherChange(next);
+              } else {
+                onPitcherChange(row.name as string);
+              }
+            }}
             sx={{
               '& .MuiSwitch-switchBase.Mui-checked': { color: PALETTE.teal },
               '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
