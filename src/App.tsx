@@ -44,6 +44,17 @@ export default function App() {
       return {};
     }
   });
+  // Initialized from the same source as columnOverrides so they start in sync.
+  // During a session they diverge (lockedAssignments accumulates across roster changes),
+  // but on reload they re-sync, preventing stale locks that produce blank '—' cells.
+  const [lockedAssignments, setLockedAssignments] = useState<ColumnOverrides>(() => {
+    try {
+      const stored = localStorage.getItem('salty-column-overrides');
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
 
   useEffect(() => {
     localStorage.setItem('salty-self-pitching', String(selfPitching));
@@ -69,12 +80,13 @@ export default function App() {
     localStorage.setItem('salty-column-overrides', JSON.stringify(columnOverrides));
   }, [columnOverrides]);
 
+
   const activePlayers = useMemo(() => roster.filter((p) => p.active), [roster]);
 
   const reoptimize = useCallback(
-    (players: Player[]) => {
+    (players: Player[], locked: ColumnOverrides) => {
       if (!players.length) return;
-      setShuffleSeed(findBestSeed(players, pitcherOverride, selfPitching));
+      setShuffleSeed(findBestSeed(players, pitcherOverride, selfPitching, locked));
     },
     [pitcherOverride, selfPitching]
   );
@@ -89,7 +101,18 @@ export default function App() {
   if (activePlayers.length > 0 && activeFingerprint !== prevActiveFingerprint) {
     setPrevActiveFingerprint(activeFingerprint);
     if (prevActiveFingerprint !== '' || shuffleSeed === undefined) {
-      setShuffleSeed(findBestSeed(activePlayers, pitcherOverride, selfPitching));
+      const activeNameSet = new Set(activePlayers.map((p) => p.name));
+      // Drop overrides for deactivated players so their positions are redistributed.
+      const filteredOverrides = Object.fromEntries(
+        Object.entries(columnOverrides).filter(([name]) => activeNameSet.has(name))
+      );
+      const filteredLocked = Object.fromEntries(
+        Object.entries(lockedAssignments).filter(([name]) => activeNameSet.has(name))
+      );
+      const nextLocked = { ...filteredLocked, ...filteredOverrides };
+      setColumnOverrides(filteredOverrides);
+      setLockedAssignments(nextLocked);
+      setShuffleSeed(findBestSeed(activePlayers, pitcherOverride, selfPitching, nextLocked));
     }
   }
 
@@ -106,8 +129,14 @@ export default function App() {
     pitcher: autoPitcher,
   } = useMemo(() => {
     if (!activePlayers.length) return { innings: {}, forced: {}, pitcher: null };
-    return computeLineup(activePlayers, pitcherOverride, selfPitching, shuffleSeed);
-  }, [activePlayers, pitcherOverride, selfPitching, shuffleSeed]);
+    return computeLineup(
+      activePlayers,
+      pitcherOverride,
+      selfPitching,
+      shuffleSeed,
+      lockedAssignments
+    );
+  }, [activePlayers, pitcherOverride, selfPitching, shuffleSeed, lockedAssignments]);
 
   const effectiveInnings: Lineup = useMemo(() => {
     const result: Lineup = {};
@@ -220,7 +249,10 @@ export default function App() {
             <Chip
               label={`${overrideCount} overrides`}
               size="small"
-              onDelete={() => setColumnOverrides({})}
+              onDelete={() => {
+                setColumnOverrides({});
+                setLockedAssignments({});
+              }}
               sx={{
                 backgroundColor: OVERRIDE_COLOUR,
                 color: '#fff',
@@ -259,7 +291,7 @@ export default function App() {
           <Button
             size="small"
             variant="outlined"
-            onClick={() => reoptimize(activePlayers)}
+            onClick={() => reoptimize(activePlayers, lockedAssignments)}
             sx={{ textTransform: 'none' }}
           >
             Shuffle

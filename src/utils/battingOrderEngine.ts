@@ -97,7 +97,7 @@ export function computeBattingOrder(activePlayers: Player[], seed?: number): Pla
   // same gender — a same-gender swap leaves the sequence pattern intact.
   const best = order.reduce((a, b) => (b.battingPower > a.battingPower ? b : a));
   const bestIdx = order.indexOf(best);
-  if (bestIdx !== 1 && gender(order[1]) === gender(best)) {
+  if (bestIdx !== 1 && order.length > 1 && gender(order[1]) === gender(best)) {
     [order[bestIdx], order[1]] = [order[1], order[bestIdx]];
   }
 

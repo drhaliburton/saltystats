@@ -88,12 +88,14 @@ export function InningEditCell({
   params,
   inningIndex,
   innings,
+  engineInnings,
   playerPrefs = [],
   onOverride,
 }: {
   params: GridRenderEditCellParams;
   inningIndex: number;
   innings: Lineup;
+  engineInnings: Lineup;
   playerPrefs?: string[];
   onOverride: (
     playerName: string,
@@ -109,12 +111,13 @@ export function InningEditCell({
 
   const options = useMemo(() => {
     const posSet = new Set<string>();
-    for (const playerPositions of Object.values(innings)) {
+    const pool = currentValue === 'SIT' ? engineInnings : innings;
+    for (const playerPositions of Object.values(pool)) {
       const pos = playerPositions[inningIndex];
       if (pos && pos !== 'SIT' && pos !== '—') posSet.add(pos);
     }
     return Array.from(posSet);
-  }, [innings, inningIndex]);
+  }, [innings, engineInnings, inningIndex, currentValue]);
 
   const preferredOptions = useMemo(
     () =>
