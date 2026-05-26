@@ -196,6 +196,7 @@ export default function App() {
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 2,
+          overflow: 'scroll',
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -273,7 +274,7 @@ export default function App() {
                 getRowsToExport: () => orderedPlayers.filter((p) => p.active).map((p) => p.name),
               })
             }
-            sx={{ textTransform: 'none' }}
+            sx={{ textTransform: 'none', textWrap: 'nowrap' }}
           >
             Export .csv
           </Button>
