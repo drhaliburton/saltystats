@@ -515,6 +515,50 @@ describe('computeLineup — locked assignments', () => {
   });
 });
 
+// ─── Override / lock sync regression ────────────────────────────────────────
+//
+// Regression for: App.tsx handleOverride must call setLockedAssignments(applyOverride)
+// alongside setColumnOverrides(applyOverride). Without the sync, computeLineup is
+// unaware of user overrides on the next reshuffle and can assign a second player to
+// the overridden position — when effectiveInnings applies the override, that position
+// appears twice.
+
+describe('computeLineup — override/lock sync regression', () => {
+  test('without lock: some seeds assign another player to the overridden position (bug is real)', () => {
+    // Verify the bug scenario is actually reachable so the companion test is meaningful.
+    const players = makePlayers(12);
+    const columnOverrides: ColumnOverrides = { P1: { 0: 'RF' } };
+
+    let bugSeedFound = false;
+    for (let seed = 0; seed < 500 && !bugSeedFound; seed++) {
+      const { innings } = computeLineup(players, null, false, seed, {}); // no lock = bug
+      const anotherHasRF = Object.entries(innings)
+        .filter(([name]) => name !== 'P1')
+        .some(([, arr]) => arr[0] === 'RF');
+      if (anotherHasRF) {
+        const effective = effectivePositions(innings, 0, columnOverrides);
+        expect(effective.filter((p) => p === 'RF').length).toBeGreaterThan(1);
+        bugSeedFound = true;
+      }
+    }
+    expect(bugSeedFound).toBe(true);
+  });
+
+  test('with lock synced to override: no seed produces effective duplicates', () => {
+    // Fixed: lockedAssignments mirrors columnOverrides (what handleOverride now does).
+    const players = makePlayers(12);
+    const columnOverrides: ColumnOverrides = { P1: { 0: 'RF' } };
+    const lockedAssignments: ColumnOverrides = { P1: { 0: 'RF' } };
+
+    for (let seed = 0; seed < 200; seed++) {
+      const { innings } = computeLineup(players, null, false, seed, lockedAssignments);
+      const effective = effectivePositions(innings, 0, columnOverrides);
+      const fielding = effective.filter((p) => p !== 'SIT' && p !== '—');
+      expect(new Set(fielding).size).toBe(fielding.length);
+    }
+  });
+});
+
 // ─── findBestSeed ────────────────────────────────────────────────────────────
 
 describe('findBestSeed', () => {

@@ -100,7 +100,11 @@ export default function App() {
   shuffleSeedRef.current = shuffleSeed;
 
   const activeFingerprint = useMemo(
-    () => activePlayers.map((p) => p.name).sort().join(','),
+    () =>
+      activePlayers
+        .map((p) => p.name)
+        .sort()
+        .join(','),
     [activePlayers]
   );
   const prevFingerprintRef = useRef('');
@@ -128,7 +132,7 @@ export default function App() {
     if (prev !== '' || shuffleSeedRef.current === undefined) {
       setShuffleSeed(findBestSeed(activePlayers, pitcherOverride, selfPitching, nextLocked, 100));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFingerprint]);
 
   const orderedPlayers = useMemo((): Player[] => {
@@ -169,7 +173,7 @@ export default function App() {
       currentPosition: string,
       swapTargetName: string | null
     ) => {
-      setColumnOverrides((prev) => {
+      const applyOverride = (prev: ColumnOverrides): ColumnOverrides => {
         const next = { ...prev };
         next[playerName] = { ...(next[playerName] ?? {}), [inningIndex]: newPosition };
         if (swapTargetName) {
@@ -179,7 +183,9 @@ export default function App() {
           };
         }
         return next;
-      });
+      };
+      setColumnOverrides(applyOverride);
+      setLockedAssignments(applyOverride);
     },
     []
   );
