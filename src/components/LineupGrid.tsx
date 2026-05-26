@@ -1,7 +1,6 @@
-import React, { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   DataGrid,
-  DataGridProps,
   GridColDef,
   GridRenderCellParams,
   GridRenderEditCellParams,
