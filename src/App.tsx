@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -80,41 +80,56 @@ export default function App() {
     localStorage.setItem('salty-column-overrides', JSON.stringify(columnOverrides));
   }, [columnOverrides]);
 
-
   const activePlayers = useMemo(() => roster.filter((p) => p.active), [roster]);
 
   const reoptimize = useCallback(
     (players: Player[], locked: ColumnOverrides) => {
       if (!players.length) return;
-      setShuffleSeed(findBestSeed(players, pitcherOverride, selfPitching, locked));
+      setShuffleSeed(findBestSeed(players, pitcherOverride, selfPitching, locked, 100));
     },
     [pitcherOverride, selfPitching]
   );
 
-  // Synchronously re-optimize when the active player set changes so React discards
-  // the intermediate render and never paints an unoptimized lineup.
-  const [prevActiveFingerprint, setPrevActiveFingerprint] = useState('');
-  const activeFingerprint = activePlayers
-    .map((p) => p.name)
-    .sort()
-    .join(',');
-  if (activePlayers.length > 0 && activeFingerprint !== prevActiveFingerprint) {
-    setPrevActiveFingerprint(activeFingerprint);
-    if (prevActiveFingerprint !== '' || shuffleSeed === undefined) {
-      const activeNameSet = new Set(activePlayers.map((p) => p.name));
-      // Drop overrides for deactivated players so their positions are redistributed.
-      const filteredOverrides = Object.fromEntries(
-        Object.entries(columnOverrides).filter(([name]) => activeNameSet.has(name))
-      );
-      const filteredLocked = Object.fromEntries(
-        Object.entries(lockedAssignments).filter(([name]) => activeNameSet.has(name))
-      );
-      const nextLocked = { ...filteredLocked, ...filteredOverrides };
-      setColumnOverrides(filteredOverrides);
-      setLockedAssignments(nextLocked);
-      setShuffleSeed(findBestSeed(activePlayers, pitcherOverride, selfPitching, nextLocked));
+  // Refs let the effect below always read the latest state values without
+  // needing them in its dep array (which would re-run it on every override change).
+  const columnOverridesRef = useRef(columnOverrides);
+  columnOverridesRef.current = columnOverrides;
+  const lockedAssignmentsRef = useRef(lockedAssignments);
+  lockedAssignmentsRef.current = lockedAssignments;
+  const shuffleSeedRef = useRef(shuffleSeed);
+  shuffleSeedRef.current = shuffleSeed;
+
+  const activeFingerprint = useMemo(
+    () => activePlayers.map((p) => p.name).sort().join(','),
+    [activePlayers]
+  );
+  const prevFingerprintRef = useRef('');
+
+  // Re-optimize after paint whenever the active roster changes. Running this in
+  // a useEffect (rather than during render) lets React commit and paint the
+  // current lineup immediately, then update once the better seed is found.
+  useEffect(() => {
+    if (!activePlayers.length) return;
+
+    const prev = prevFingerprintRef.current;
+    prevFingerprintRef.current = activeFingerprint;
+
+    const activeNameSet = new Set(activePlayers.map((p) => p.name));
+    const filteredOverrides = Object.fromEntries(
+      Object.entries(columnOverridesRef.current).filter(([name]) => activeNameSet.has(name))
+    );
+    const filteredLocked = Object.fromEntries(
+      Object.entries(lockedAssignmentsRef.current).filter(([name]) => activeNameSet.has(name))
+    );
+    const nextLocked = { ...filteredLocked, ...filteredOverrides };
+    setColumnOverrides(filteredOverrides);
+    setLockedAssignments(nextLocked);
+
+    if (prev !== '' || shuffleSeedRef.current === undefined) {
+      setShuffleSeed(findBestSeed(activePlayers, pitcherOverride, selfPitching, nextLocked, 100));
     }
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFingerprint]);
 
   const orderedPlayers = useMemo((): Player[] => {
     if (!activePlayers.length) return roster;

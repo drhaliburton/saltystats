@@ -7,7 +7,8 @@ const gender = (p: Player): 'f' | 'm' => (p.gender?.toLowerCase() === 'f' ? 'f' 
 // more remaining players when both are valid, to prevent one gender piling up at the end.
 function buildSeqFrom(nF: number, nM: number, startWith: 'f' | 'm'): ('f' | 'm')[] {
   const seq: ('f' | 'm')[] = [];
-  let remF = nF, remM = nM;
+  let remF = nF,
+    remM = nM;
   let last: 'f' | 'm' | null = null;
   let consec = 0;
   let isFirst = true;

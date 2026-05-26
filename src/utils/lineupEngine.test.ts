@@ -61,9 +61,7 @@ function assertNoPositionConflicts(
     const fieldPositions = assigned.filter((p) => p !== '—');
     const positionSet = new Set(fieldPositions);
 
-    expect(positionSet.size).toBe(
-      fieldPositions.length
-    ); // no duplicates
+    expect(positionSet.size).toBe(fieldPositions.length); // no duplicates
 
     // Every position that should be filled is filled (no gaps among free slots)
     const expectedCount = Math.min(Object.keys(innings).length, positions.length);
@@ -95,15 +93,79 @@ describe('computeLineup — basic invariants', () => {
     // Real-world bug: with certain preference overlaps (3 players share RF as top choice,
     // 2 share 2B, SS not in any player's first 3 prefs), one player was left unassigned.
     const players = [
-      makePlayer({ name: 'Rebecca', gender: 'f', preferredPosition: '2B', alt1: 'Rover', alt2: '3B', alt3: '1B' }),
-      makePlayer({ name: 'Alexis', gender: 'f', preferredPosition: 'Catcher', alt1: 'Rover', alt2: 'RF', alt3: '3B' }),
-      makePlayer({ name: 'Mariah', gender: 'f', preferredPosition: 'RF', alt1: '1B', alt2: 'Catcher', alt3: 'Rover' }),
-      makePlayer({ name: 'Allison', gender: 'f', preferredPosition: 'RF', alt1: 'LF', alt2: '2B', alt3: 'Rover' }),
-      makePlayer({ name: 'Dylan', gender: 'm', preferredPosition: 'CF', alt1: 'LF', alt2: 'RF', alt3: 'SS', pitcherPriority: 4 }),
-      makePlayer({ name: 'Hannah', gender: 'f', preferredPosition: 'RF', alt1: 'LF', alt2: '1B', alt3: 'Catcher' }),
-      makePlayer({ name: 'Connor', gender: 'm', preferredPosition: '1B', alt1: 'SS', alt2: 'Rover', alt3: '3B' }),
-      makePlayer({ name: 'Laura', gender: 'f', preferredPosition: '2B', alt1: 'RF', alt2: 'Rover', alt3: 'Catcher' }),
-      makePlayer({ name: 'Tyler', gender: 'm', preferredPosition: '3B', alt1: 'LF', alt2: '1B', alt3: 'SS' }),
+      makePlayer({
+        name: 'Rebecca',
+        gender: 'f',
+        preferredPosition: '2B',
+        alt1: 'Rover',
+        alt2: '3B',
+        alt3: '1B',
+      }),
+      makePlayer({
+        name: 'Alexis',
+        gender: 'f',
+        preferredPosition: 'Catcher',
+        alt1: 'Rover',
+        alt2: 'RF',
+        alt3: '3B',
+      }),
+      makePlayer({
+        name: 'Mariah',
+        gender: 'f',
+        preferredPosition: 'RF',
+        alt1: '1B',
+        alt2: 'Catcher',
+        alt3: 'Rover',
+      }),
+      makePlayer({
+        name: 'Allison',
+        gender: 'f',
+        preferredPosition: 'RF',
+        alt1: 'LF',
+        alt2: '2B',
+        alt3: 'Rover',
+      }),
+      makePlayer({
+        name: 'Dylan',
+        gender: 'm',
+        preferredPosition: 'CF',
+        alt1: 'LF',
+        alt2: 'RF',
+        alt3: 'SS',
+        pitcherPriority: 4,
+      }),
+      makePlayer({
+        name: 'Hannah',
+        gender: 'f',
+        preferredPosition: 'RF',
+        alt1: 'LF',
+        alt2: '1B',
+        alt3: 'Catcher',
+      }),
+      makePlayer({
+        name: 'Connor',
+        gender: 'm',
+        preferredPosition: '1B',
+        alt1: 'SS',
+        alt2: 'Rover',
+        alt3: '3B',
+      }),
+      makePlayer({
+        name: 'Laura',
+        gender: 'f',
+        preferredPosition: '2B',
+        alt1: 'RF',
+        alt2: 'Rover',
+        alt3: 'Catcher',
+      }),
+      makePlayer({
+        name: 'Tyler',
+        gender: 'm',
+        preferredPosition: '3B',
+        alt1: 'LF',
+        alt2: '1B',
+        alt3: 'SS',
+      }),
     ];
     for (const seed of [0, 1, 42, 99, 999, 12345, 0xdeadbeef]) {
       const { innings } = computeLineup(players, null, true, seed);
@@ -436,12 +498,8 @@ describe('computeLineup — locked assignments', () => {
       const fielding = effective.filter((p) => p !== 'SIT' && p !== '—');
       expect(new Set(fielding).size).toBe(fielding.length);
       // Locked players appear in effective at their locked positions
-      expect(effective[players.findIndex((p) => p.name === 'P1')]).toBe(
-        lockedAssignments['P1'][i]
-      );
-      expect(effective[players.findIndex((p) => p.name === 'P2')]).toBe(
-        lockedAssignments['P2'][i]
-      );
+      expect(effective[players.findIndex((p) => p.name === 'P1')]).toBe(lockedAssignments['P1'][i]);
+      expect(effective[players.findIndex((p) => p.name === 'P2')]).toBe(lockedAssignments['P2'][i]);
     }
   });
 
