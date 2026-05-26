@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -62,21 +62,17 @@ export default function App() {
     [pitcherOverride, selfPitching]
   );
 
-  const initializedRef = useRef(false);
-  useEffect(() => {
-    if (initializedRef.current || !activePlayers.length) return;
-    initializedRef.current = true;
-    reoptimize(activePlayers);
-  }, [activePlayers, reoptimize]);
-
-  const handleToggle = useCallback(
-    (name: string) => {
-      const newActive = roster.filter((p) => (p.name === name ? !p.active : p.active));
-      togglePlayer(name);
-      reoptimize(newActive);
-    },
-    [roster, togglePlayer, reoptimize]
-  );
+  // Synchronously re-optimize when the active player set changes so React discards
+  // the intermediate render and never paints an unoptimized lineup.
+  const [prevActiveFingerprint, setPrevActiveFingerprint] = useState('');
+  const activeFingerprint = activePlayers
+    .map((p) => p.name)
+    .sort()
+    .join(',');
+  if (activePlayers.length > 0 && activeFingerprint !== prevActiveFingerprint) {
+    setPrevActiveFingerprint(activeFingerprint);
+    setShuffleSeed(findBestSeed(activePlayers, pitcherOverride, selfPitching));
+  }
 
   const orderedPlayers = useMemo((): Player[] => {
     if (!activePlayers.length) return roster;
@@ -273,7 +269,7 @@ export default function App() {
           forcedAssignments={forcedAssignments}
           columnOverrides={columnOverrides}
           onOverride={handleOverride}
-          onToggle={handleToggle}
+          onToggle={togglePlayer}
           onPitcherChange={setPitcherOverride}
           pitcherOverride={pitcherOverride}
           autoPitcher={autoPitcher}
