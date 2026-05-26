@@ -1,69 +1,36 @@
 import React, { useMemo } from 'react';
-import { DataGrid, GridColDef, GridRenderCellParams, useGridApiRef } from '@mui/x-data-grid';
+import {
+  DataGrid,
+  GridColDef,
+  GridRenderCellParams,
+  GridRenderEditCellParams,
+  useGridApiRef,
+} from '@mui/x-data-grid';
 import Checkbox from '@mui/material/Checkbox';
 import Switch from '@mui/material/Switch';
-import Chip from '@mui/material/Chip';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { ForcedAssignments, Lineup, Player } from '../types';
+import { ColumnOverrides, ForcedAssignments, Lineup, Player } from '../types';
 import { PALETTE } from '../theme';
 import { NUM_INNINGS } from '../utils/lineupEngine';
+import { InningEditCell, PositionChip } from './LineupCell';
 
 export type LineupGridApiRef = ReturnType<typeof useGridApiRef>;
-
-// All derived from the palette: greens for infield/battery, teals for outfield/rover
-const POSITION_COLORS: Record<string, string> = {
-  Pitcher: PALETTE.black,
-  Catcher: '#1f4e32',
-  '1B': '#2d6a46',
-  '2B': '#3d7d57',
-  '3B': '#4f9169',
-  Rover: '#1a7878',
-  SS: '#0f5e5e',
-  LF: '#1e7b79',
-  CF: '#258f8d',
-  RF: '#2a9694',
-};
-
-const FORCED_COLOR = '#b45309';
-
-function PositionChip({ value, forced }: { value: string; forced?: boolean }) {
-  const color = POSITION_COLORS[value];
-  if (!color && value !== 'SIT') {
-    return (
-      <Typography variant="caption" sx={{ color: '#aaa' }}>
-        —
-      </Typography>
-    );
-  }
-  if (value === 'SIT') {
-    return (
-      <Typography variant="caption" sx={{ color: '#aaa' }}>
-        —
-      </Typography>
-    );
-  }
-  return (
-    <Chip
-      label={value}
-      size="small"
-      sx={{
-        backgroundColor: forced ? FORCED_COLOR : color,
-        color: '#fff',
-        fontWeight: 600,
-        fontSize: '0.7rem',
-        height: 22,
-        borderRadius: '4px',
-      }}
-    />
-  );
-}
 
 interface LineupGridProps {
   roster: Player[];
   orderedPlayers: Player[];
   innings: Lineup;
+  engineInnings: Lineup;
   forcedAssignments: ForcedAssignments;
+  columnOverrides: ColumnOverrides;
+  onOverride: (
+    playerName: string,
+    inningIndex: number,
+    newPosition: string,
+    currentPosition: string,
+    swapTargetName: string | null
+  ) => void;
   onToggle: (name: string) => void;
   onPitcherChange: (name: string | null) => void;
   pitcherOverride: string | null;
@@ -86,7 +53,10 @@ export function LineupGrid({
   roster: _roster,
   orderedPlayers,
   innings,
+  engineInnings,
   forcedAssignments,
+  columnOverrides,
+  onOverride,
   onToggle,
   onPitcherChange,
   pitcherOverride,
@@ -94,8 +64,6 @@ export function LineupGrid({
   selfPitching,
   apiRef,
 }: LineupGridProps) {
-  // In self-pitching mode no one is assigned the Pitcher field position, so drive the
-  // toggle from pitcherOverride directly. In normal mode derive it from the innings.
   const pitcherName = useMemo(
     () =>
       selfPitching
@@ -130,101 +98,134 @@ export function LineupGrid({
     });
   }, [orderedPlayers, innings]);
 
-  const inningColumns: GridColDef[] = Array.from({ length: NUM_INNINGS }, (_, i) => ({
-    field: `inning${i + 1}`,
-    headerName: `${i + 1}`,
-    flex: 1,
-    minWidth: 70,
-    sortable: false,
-    align: 'center' as const,
-    headerAlign: 'center' as const,
-    renderCell: ({ value, row }: GridRenderCellParams) => (
-      <PositionChip
-        value={value as string}
-        forced={forcedAssignments[row.name as string]?.[i] ?? false}
-      />
-    ),
-  }));
+  const inningColumns: GridColDef[] = useMemo(
+    () =>
+      Array.from({ length: NUM_INNINGS }, (_, i) => ({
+        field: `inning${i + 1}`,
+        headerName: `${i + 1}`,
+        flex: 1,
+        minWidth: 70,
+        sortable: false,
+        align: 'center' as const,
+        headerAlign: 'center' as const,
+        editable: true,
+        isCellEditable: (params: GridRenderCellParams) =>
+          (params.row.active as boolean) && params.value !== '—' && !!params.value,
+        renderCell: ({ value, row }: GridRenderCellParams) => {
+          const name = row.name as string;
+          const overrideVal = columnOverrides[name]?.[i];
+          const isOverridden =
+            overrideVal !== undefined && overrideVal !== engineInnings[name]?.[i];
+          const isForced = !isOverridden && (forcedAssignments[name]?.[i] ?? false);
+          return (
+            <PositionChip value={value as string} forced={isForced} overridden={isOverridden} />
+          );
+        },
+        renderEditCell: (params: GridRenderEditCellParams) => {
+          const player = orderedPlayers.find((p) => p.name === (params.row.name as string));
+          const playerPrefs = player
+            ? [player.preferredPosition, player.alt1, player.alt2, player.alt3].filter(Boolean)
+            : [];
+          return (
+            <InningEditCell
+              params={params}
+              inningIndex={i}
+              innings={innings}
+              playerPrefs={playerPrefs}
+              onOverride={onOverride}
+            />
+          );
+        },
+      })),
+    [innings, engineInnings, forcedAssignments, columnOverrides, onOverride, orderedPlayers]
+  );
 
-  const columns: GridColDef[] = [
-    {
-      field: 'active',
-      headerName: '',
-      width: 50,
-      sortable: false,
-      disableExport: true,
-      renderCell: ({ row }: GridRenderCellParams<RowData>) => (
-        <Checkbox
-          checked={row.active as boolean}
-          size="small"
-          sx={{ color: PALETTE.teal, '&.Mui-checked': { color: PALETTE.teal } }}
-          onChange={() => onToggle(row.name as string)}
-        />
-      ),
-    },
-
-    {
-      field: 'battingSlot',
-      headerName: 'Order',
-      width: 80,
-    },
-    {
-      field: 'name',
-      headerName: 'Player',
-      flex: 1,
-      minWidth: 120,
-      renderCell: ({ row }: GridRenderCellParams<RowData>) => (
-        <Typography variant="body2" sx={{ opacity: row.active ? 1 : 0.35, fontWeight: 500 }}>
-          {row.name as string}
-        </Typography>
-      ),
-    },
-    {
-      field: 'homeruns',
-      headerName: 'HRs',
-      width: 80,
-      align: 'center',
-      headerAlign: 'center',
-    },
-    {
-      field: 'pitcher',
-      headerName: 'Pitcher',
-      width: 80,
-      sortable: false,
-      disableExport: true,
-      align: 'center' as const,
-      headerAlign: 'center' as const,
-      renderCell: ({ row }: GridRenderCellParams<RowData>) => {
-        const player = orderedPlayers.find((p) => p.name === row.name);
-        if (!player || player.pitcherPriority === null) return null;
-        if (selfPitching) {
-          return '✓';
-        }
-        const isOn = pitcherName === row.name;
-        return (
-          <Switch
-            checked={isOn}
+  const columns: GridColDef[] = useMemo(
+    () => [
+      {
+        field: 'active',
+        headerName: '',
+        width: 50,
+        sortable: false,
+        disableExport: true,
+        renderCell: ({ row }: GridRenderCellParams<RowData>) => (
+          <Checkbox
+            checked={row.active as boolean}
             size="small"
-            onChange={() => {
-              if (isOn) {
-                const next = eligiblePitchers.find((p) => p.name !== row.name)?.name ?? null;
-                onPitcherChange(next);
-              } else {
-                onPitcherChange(row.name as string);
-              }
-            }}
-            sx={{
-              '& .MuiSwitch-switchBase.Mui-checked': { color: PALETTE.teal },
-              '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                backgroundColor: PALETTE.teal,
-              },
-            }}
+            sx={{ color: PALETTE.teal, '&.Mui-checked': { color: PALETTE.teal } }}
+            onChange={() => onToggle(row.name as string)}
           />
-        );
+        ),
       },
-    },
-    ...inningColumns,
-  ];
+      {
+        field: 'battingSlot',
+        headerName: 'Order',
+        width: 10,
+      },
+      {
+        field: 'name',
+        headerName: 'Player',
+        flex: 1,
+        renderCell: ({ row }: GridRenderCellParams<RowData>) => (
+          <Typography variant="body2" sx={{ opacity: row.active ? 1 : 0.35, fontWeight: 500 }}>
+            {row.name as string}
+          </Typography>
+        ),
+      },
+      {
+        field: 'homeruns',
+        headerName: 'HRs',
+        width: 60,
+        align: 'center',
+        headerAlign: 'center',
+      },
+      {
+        field: 'pitcher',
+        headerName: 'Pitcher',
+        width: 80,
+        sortable: false,
+        disableExport: true,
+        align: 'center' as const,
+        headerAlign: 'center' as const,
+        renderCell: ({ row }: GridRenderCellParams<RowData>) => {
+          const player = orderedPlayers.find((p) => p.name === row.name);
+          if (!player || player.pitcherPriority === null) return null;
+          if (selfPitching) return '✓';
+          const isOn = pitcherName === row.name;
+          return (
+            <Switch
+              checked={isOn}
+              size="small"
+              onChange={() => {
+                if (isOn) {
+                  const next = eligiblePitchers.find((p) => p.name !== row.name)?.name ?? null;
+                  onPitcherChange(next);
+                } else {
+                  onPitcherChange(row.name as string);
+                }
+              }}
+              sx={{
+                '& .MuiSwitch-switchBase.Mui-checked': { color: PALETTE.teal },
+                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                  backgroundColor: PALETTE.teal,
+                },
+              }}
+            />
+          );
+        },
+      },
+      ...inningColumns,
+    ],
+    [
+      inningColumns,
+      orderedPlayers,
+      selfPitching,
+      pitcherName,
+      eligiblePitchers,
+      onToggle,
+      onPitcherChange,
+    ]
+  );
 
   return (
     <Box sx={{ width: '100%', overflow: 'hidden', pb: 1 }}>
@@ -240,18 +241,33 @@ export function LineupGrid({
         initialState={{
           sorting: { sortModel: [{ field: 'battingSlot', sort: 'asc' }] },
         }}
+        processRowUpdate={(newRow) => newRow}
+        onProcessRowUpdateError={(err) => console.error(err)}
+        onCellClick={(params) => {
+          if (!params.field.startsWith('inning')) return;
+          if (!(params.row as RowData).active) return;
+          const value = params.value;
+          if (!value || value === '—') return;
+          if (apiRef.current?.getCellMode(params.id, params.field) === 'view') {
+            apiRef.current.startCellEditMode({ id: params.id, field: params.field });
+          }
+        }}
         sx={{
           border: 'none',
           borderRadius: 0,
           backgroundColor: '#fff',
           '& .MuiDataGrid-row.inactive': { opacity: 0.45 },
           '& .MuiDataGrid-columnHeader': {
-            backgroundColor: '#204544',
+            backgroundColor: PALETTE.darkTeal,
             color: 'white',
             fontWeight: 700,
           },
           '& .MuiDataGrid-columnSeparator': { display: 'none' },
           '& .MuiDataGrid-cell': { display: 'flex', alignItems: 'center' },
+          '& .MuiDataGrid-cell--editing': {
+            backgroundColor: 'transparent !important',
+            boxShadow: 'none !important',
+          },
         }}
         getRowClassName={({ row }) => (row.active ? '' : 'inactive')}
       />

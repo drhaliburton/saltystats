@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -13,7 +13,8 @@ import { useRoster } from './hooks/useRoster';
 import { computeLineup } from './utils/lineupEngine';
 import { computeBattingOrder } from './utils/battingOrderEngine';
 import { PALETTE } from './theme';
-import { Player } from './types';
+import { ColumnOverrides, Lineup, Player } from './types';
+import { FORCED_COLOUR, OVERRIDE_COLOUR } from './components/LineupCell';
 
 function exportFileName() {
   const d = new Date();
@@ -30,6 +31,14 @@ export default function App() {
     const stored = localStorage.getItem('salty-shuffle-seed');
     return stored !== null ? Number(stored) : undefined;
   });
+  const [columnOverrides, setColumnOverrides] = useState<ColumnOverrides>(() => {
+    try {
+      const stored = localStorage.getItem('salty-column-overrides');
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
 
   useEffect(() => {
     if (shuffleSeed !== undefined) {
@@ -38,6 +47,10 @@ export default function App() {
       localStorage.removeItem('salty-shuffle-seed');
     }
   }, [shuffleSeed]);
+
+  useEffect(() => {
+    localStorage.setItem('salty-column-overrides', JSON.stringify(columnOverrides));
+  }, [columnOverrides]);
 
   const activePlayers = useMemo(() => roster.filter((p) => p.active), [roster]);
 
@@ -57,6 +70,57 @@ export default function App() {
     return computeLineup(activePlayers, pitcherOverride, selfPitching, shuffleSeed);
   }, [activePlayers, pitcherOverride, selfPitching, shuffleSeed]);
 
+  const effectiveInnings: Lineup = useMemo(() => {
+    const result: Lineup = {};
+    for (const [name, positions] of Object.entries(innings)) {
+      result[name] = positions.map((pos, i) => columnOverrides[name]?.[i] ?? pos);
+    }
+    return result;
+  }, [innings, columnOverrides]);
+
+  const handleOverride = useCallback(
+    (
+      playerName: string,
+      inningIndex: number,
+      newPosition: string,
+      currentPosition: string,
+      swapTargetName: string | null
+    ) => {
+      setColumnOverrides((prev) => {
+        const next = { ...prev };
+        next[playerName] = { ...(next[playerName] ?? {}), [inningIndex]: newPosition };
+        if (swapTargetName) {
+          next[swapTargetName] = {
+            ...(next[swapTargetName] ?? {}),
+            [inningIndex]: currentPosition,
+          };
+        }
+        return next;
+      });
+    },
+    []
+  );
+
+  const overrideCount = useMemo(() => {
+    let count = 0;
+    for (const [name, inningMap] of Object.entries(columnOverrides)) {
+      for (const [idx, val] of Object.entries(inningMap)) {
+        if (val !== innings[name]?.[Number(idx)]) count++;
+      }
+    }
+    return count;
+  }, [columnOverrides, innings]);
+
+  const forcedCount = useMemo(() => {
+    let count = 0;
+    for (const [name, forcedArr] of Object.entries(forcedAssignments)) {
+      for (let i = 0; i < forcedArr.length; i++) {
+        if (forcedArr[i] && columnOverrides[name]?.[i] === undefined) count++;
+      }
+    }
+    return count;
+  }, [forcedAssignments, columnOverrides]);
+
   if (loading) {
     return (
       <Box
@@ -65,7 +129,7 @@ export default function App() {
           justifyContent: 'center',
           alignItems: 'center',
           minHeight: '100vh',
-          backgroundColor: PALETTE.black,
+          backgroundColor: PALETTE.darkestTeal,
         }}
       >
         <CircularProgress sx={{ color: PALETTE.lightTeal }} />
@@ -85,7 +149,7 @@ export default function App() {
     <Box sx={{ minHeight: '100vh', backgroundColor: '#edf8f9', overscrollBehavior: 'none' }}>
       <Box
         sx={{
-          backgroundColor: '#102221',
+          backgroundColor: PALETTE.darkestTeal,
           px: 1.5,
           py: 1,
           height: '47px',
@@ -104,6 +168,29 @@ export default function App() {
               fontWeight: 600,
             }}
           />
+          {forcedCount > 0 && (
+            <Chip
+              label={`${forcedCount} forced`}
+              size="small"
+              sx={{ backgroundColor: FORCED_COLOUR, color: '#fff', fontWeight: 600 }}
+            />
+          )}
+          {overrideCount > 0 && (
+            <Chip
+              label={`${overrideCount} overrides`}
+              size="small"
+              onDelete={() => setColumnOverrides({})}
+              sx={{
+                backgroundColor: OVERRIDE_COLOUR,
+                color: '#fff',
+                fontWeight: 600,
+                '& .MuiChip-deleteIcon': {
+                  color: 'rgba(255,255,255,0.7)',
+                  '&:hover': { color: '#fff' },
+                },
+              }}
+            />
+          )}
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <FormControlLabel
@@ -157,8 +244,11 @@ export default function App() {
         <LineupGrid
           roster={roster}
           orderedPlayers={orderedPlayers}
-          innings={innings}
+          innings={effectiveInnings}
+          engineInnings={innings}
           forcedAssignments={forcedAssignments}
+          columnOverrides={columnOverrides}
+          onOverride={handleOverride}
           onToggle={togglePlayer}
           onPitcherChange={setPitcherOverride}
           pitcherOverride={pitcherOverride}
