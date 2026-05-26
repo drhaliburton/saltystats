@@ -141,6 +141,34 @@ function assignPositions(
   return { assignments: assigned, forcedNames };
 }
 
+function countForced(forced: ForcedAssignments): number {
+  let total = 0;
+  for (const arr of Object.values(forced)) total += arr.filter(Boolean).length;
+  return total;
+}
+
+export function findBestSeed(
+  activePlayers: Player[],
+  pitcherOverride: string | null | undefined,
+  selfPitching: boolean,
+  candidates = 200,
+  targetForced = 3
+): number {
+  let bestSeed = Math.floor(Math.random() * 2 ** 32);
+  let bestCount = Infinity;
+  for (let i = 0; i < candidates; i++) {
+    const seed = Math.floor(Math.random() * 2 ** 32);
+    const { forced } = computeLineup(activePlayers, pitcherOverride, selfPitching, seed);
+    const n = countForced(forced);
+    if (n < bestCount) {
+      bestCount = n;
+      bestSeed = seed;
+    }
+    if (n < targetForced) break;
+  }
+  return bestSeed;
+}
+
 export function computeLineup(
   activePlayers: Player[],
   pitcherOverride?: string | null,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -10,7 +10,7 @@ import Switch from '@mui/material/Switch';
 import { useGridApiRef } from '@mui/x-data-grid';
 import { LineupGrid } from './components/LineupGrid';
 import { useRoster } from './hooks/useRoster';
-import { computeLineup } from './utils/lineupEngine';
+import { computeLineup, findBestSeed } from './utils/lineupEngine';
 import { computeBattingOrder } from './utils/battingOrderEngine';
 import { PALETTE } from './theme';
 import { ColumnOverrides, Lineup, Player } from './types';
@@ -53,6 +53,30 @@ export default function App() {
   }, [columnOverrides]);
 
   const activePlayers = useMemo(() => roster.filter((p) => p.active), [roster]);
+
+  const reoptimize = useCallback(
+    (players: Player[]) => {
+      if (!players.length) return;
+      setShuffleSeed(findBestSeed(players, pitcherOverride, selfPitching));
+    },
+    [pitcherOverride, selfPitching]
+  );
+
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (initializedRef.current || !activePlayers.length) return;
+    initializedRef.current = true;
+    reoptimize(activePlayers);
+  }, [activePlayers, reoptimize]);
+
+  const handleToggle = useCallback(
+    (name: string) => {
+      const newActive = roster.filter((p) => (p.name === name ? !p.active : p.active));
+      togglePlayer(name);
+      reoptimize(newActive);
+    },
+    [roster, togglePlayer, reoptimize]
+  );
 
   const orderedPlayers = useMemo((): Player[] => {
     if (!activePlayers.length) return roster;
@@ -218,7 +242,7 @@ export default function App() {
           <Button
             size="small"
             variant="outlined"
-            onClick={() => setShuffleSeed(Math.floor(Math.random() * 2 ** 32))}
+            onClick={() => reoptimize(activePlayers)}
             sx={{ textTransform: 'none' }}
           >
             Shuffle
@@ -249,7 +273,7 @@ export default function App() {
           forcedAssignments={forcedAssignments}
           columnOverrides={columnOverrides}
           onOverride={handleOverride}
-          onToggle={togglePlayer}
+          onToggle={handleToggle}
           onPitcherChange={setPitcherOverride}
           pitcherOverride={pitcherOverride}
           autoPitcher={autoPitcher}
