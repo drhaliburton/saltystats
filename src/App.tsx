@@ -25,8 +25,13 @@ function exportFileName() {
 export default function App() {
   const { roster, loading, error, togglePlayer } = useRoster();
   const gridApiRef = useGridApiRef();
-  const [selfPitching, setSelfPitching] = useState(true);
-  const [pitcherOverride, setPitcherOverride] = useState<string | null>(null);
+  const [selfPitching, setSelfPitching] = useState(
+    () => localStorage.getItem('salty-self-pitching') !== 'false'
+  );
+
+  const [pitcherOverride, setPitcherOverride] = useState<string | null>(() =>
+    localStorage.getItem('salty-pitcher-override')
+  );
   const [shuffleSeed, setShuffleSeed] = useState<number | undefined>(() => {
     const stored = localStorage.getItem('salty-shuffle-seed');
     return stored !== null ? Number(stored) : undefined;
@@ -39,6 +44,18 @@ export default function App() {
       return {};
     }
   });
+
+  useEffect(() => {
+    localStorage.setItem('salty-self-pitching', String(selfPitching));
+  }, [selfPitching]);
+
+  useEffect(() => {
+    if (pitcherOverride !== null) {
+      localStorage.setItem('salty-pitcher-override', pitcherOverride);
+    } else {
+      localStorage.removeItem('salty-pitcher-override');
+    }
+  }, [pitcherOverride]);
 
   useEffect(() => {
     if (shuffleSeed !== undefined) {
@@ -71,7 +88,9 @@ export default function App() {
     .join(',');
   if (activePlayers.length > 0 && activeFingerprint !== prevActiveFingerprint) {
     setPrevActiveFingerprint(activeFingerprint);
-    setShuffleSeed(findBestSeed(activePlayers, pitcherOverride, selfPitching));
+    if (prevActiveFingerprint !== '' || shuffleSeed === undefined) {
+      setShuffleSeed(findBestSeed(activePlayers, pitcherOverride, selfPitching));
+    }
   }
 
   const orderedPlayers = useMemo((): Player[] => {
@@ -184,7 +203,8 @@ export default function App() {
             label={`${activePlayers.length} active`}
             size="small"
             sx={{
-              backgroundColor: activePlayers.length >= 10 ? PALETTE.teal : '#e57373',
+              backgroundColor:
+                activePlayers.length >= (selfPitching ? 9 : 10) ? PALETTE.teal : '#e57373',
               fontWeight: 600,
             }}
           />
