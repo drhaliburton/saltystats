@@ -2,7 +2,6 @@ import { computeLineup, findBestSeed, NUM_INNINGS } from './lineupEngine';
 import { ColumnOverrides, Player } from '../types';
 
 const FIELD_POSITIONS = ['Catcher', '1B', '2B', '3B', 'Rover', 'SS', 'LF', 'CF', 'RF'];
-const ALL_POSITIONS = ['Pitcher', ...FIELD_POSITIONS];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
