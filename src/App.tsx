@@ -10,7 +10,7 @@ import Switch from '@mui/material/Switch';
 import { useGridApiRef } from '@mui/x-data-grid';
 import { LineupGrid } from './components/LineupGrid';
 import { useRoster } from './hooks/useRoster';
-import { computeLineup } from './utils/lineupEngine';
+import { computeLineup, findBestSeed } from './utils/lineupEngine';
 import { computeBattingOrder } from './utils/battingOrderEngine';
 import { PALETTE } from './theme';
 import { ColumnOverrides, Lineup, Player } from './types';
@@ -25,8 +25,13 @@ function exportFileName() {
 export default function App() {
   const { roster, loading, error, togglePlayer } = useRoster();
   const gridApiRef = useGridApiRef();
-  const [selfPitching, setSelfPitching] = useState(true);
-  const [pitcherOverride, setPitcherOverride] = useState<string | null>(null);
+  const [selfPitching, setSelfPitching] = useState(
+    () => localStorage.getItem('salty-self-pitching') !== 'false'
+  );
+
+  const [pitcherOverride, setPitcherOverride] = useState<string | null>(() =>
+    localStorage.getItem('salty-pitcher-override')
+  );
   const [shuffleSeed, setShuffleSeed] = useState<number | undefined>(() => {
     const stored = localStorage.getItem('salty-shuffle-seed');
     return stored !== null ? Number(stored) : undefined;
@@ -41,6 +46,18 @@ export default function App() {
   });
 
   useEffect(() => {
+    localStorage.setItem('salty-self-pitching', String(selfPitching));
+  }, [selfPitching]);
+
+  useEffect(() => {
+    if (pitcherOverride !== null) {
+      localStorage.setItem('salty-pitcher-override', pitcherOverride);
+    } else {
+      localStorage.removeItem('salty-pitcher-override');
+    }
+  }, [pitcherOverride]);
+
+  useEffect(() => {
     if (shuffleSeed !== undefined) {
       localStorage.setItem('salty-shuffle-seed', String(shuffleSeed));
     } else {
@@ -53,6 +70,28 @@ export default function App() {
   }, [columnOverrides]);
 
   const activePlayers = useMemo(() => roster.filter((p) => p.active), [roster]);
+
+  const reoptimize = useCallback(
+    (players: Player[]) => {
+      if (!players.length) return;
+      setShuffleSeed(findBestSeed(players, pitcherOverride, selfPitching));
+    },
+    [pitcherOverride, selfPitching]
+  );
+
+  // Synchronously re-optimize when the active player set changes so React discards
+  // the intermediate render and never paints an unoptimized lineup.
+  const [prevActiveFingerprint, setPrevActiveFingerprint] = useState('');
+  const activeFingerprint = activePlayers
+    .map((p) => p.name)
+    .sort()
+    .join(',');
+  if (activePlayers.length > 0 && activeFingerprint !== prevActiveFingerprint) {
+    setPrevActiveFingerprint(activeFingerprint);
+    if (prevActiveFingerprint !== '' || shuffleSeed === undefined) {
+      setShuffleSeed(findBestSeed(activePlayers, pitcherOverride, selfPitching));
+    }
+  }
 
   const orderedPlayers = useMemo((): Player[] => {
     if (!activePlayers.length) return roster;
@@ -164,7 +203,8 @@ export default function App() {
             label={`${activePlayers.length} active`}
             size="small"
             sx={{
-              backgroundColor: activePlayers.length >= 10 ? PALETTE.teal : '#e57373',
+              backgroundColor:
+                activePlayers.length >= (selfPitching ? 9 : 10) ? PALETTE.teal : '#e57373',
               fontWeight: 600,
             }}
           />
@@ -218,7 +258,7 @@ export default function App() {
           <Button
             size="small"
             variant="outlined"
-            onClick={() => setShuffleSeed(Math.floor(Math.random() * 2 ** 32))}
+            onClick={() => reoptimize(activePlayers)}
             sx={{ textTransform: 'none' }}
           >
             Shuffle
