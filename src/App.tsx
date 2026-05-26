@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -44,6 +44,17 @@ export default function App() {
       return {};
     }
   });
+  // Initialized from the same source as columnOverrides so they start in sync.
+  // During a session they diverge (lockedAssignments accumulates across roster changes),
+  // but on reload they re-sync, preventing stale locks that produce blank '—' cells.
+  const [lockedAssignments, setLockedAssignments] = useState<ColumnOverrides>(() => {
+    try {
+      const stored = localStorage.getItem('salty-column-overrides');
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
 
   useEffect(() => {
     localStorage.setItem('salty-self-pitching', String(selfPitching));
@@ -72,26 +83,57 @@ export default function App() {
   const activePlayers = useMemo(() => roster.filter((p) => p.active), [roster]);
 
   const reoptimize = useCallback(
-    (players: Player[]) => {
+    (players: Player[], locked: ColumnOverrides) => {
       if (!players.length) return;
-      setShuffleSeed(findBestSeed(players, pitcherOverride, selfPitching));
+      setShuffleSeed(findBestSeed(players, pitcherOverride, selfPitching, locked, 100));
     },
     [pitcherOverride, selfPitching]
   );
 
-  // Synchronously re-optimize when the active player set changes so React discards
-  // the intermediate render and never paints an unoptimized lineup.
-  const [prevActiveFingerprint, setPrevActiveFingerprint] = useState('');
-  const activeFingerprint = activePlayers
-    .map((p) => p.name)
-    .sort()
-    .join(',');
-  if (activePlayers.length > 0 && activeFingerprint !== prevActiveFingerprint) {
-    setPrevActiveFingerprint(activeFingerprint);
-    if (prevActiveFingerprint !== '' || shuffleSeed === undefined) {
-      setShuffleSeed(findBestSeed(activePlayers, pitcherOverride, selfPitching));
+  // Refs let the effect below always read the latest state values without
+  // needing them in its dep array (which would re-run it on every override change).
+  const columnOverridesRef = useRef(columnOverrides);
+  columnOverridesRef.current = columnOverrides;
+  const lockedAssignmentsRef = useRef(lockedAssignments);
+  lockedAssignmentsRef.current = lockedAssignments;
+  const shuffleSeedRef = useRef(shuffleSeed);
+  shuffleSeedRef.current = shuffleSeed;
+
+  const activeFingerprint = useMemo(
+    () =>
+      activePlayers
+        .map((p) => p.name)
+        .sort()
+        .join(','),
+    [activePlayers]
+  );
+  const prevFingerprintRef = useRef('');
+
+  // Re-optimize after paint whenever the active roster changes. Running this in
+  // a useEffect (rather than during render) lets React commit and paint the
+  // current lineup immediately, then update once the better seed is found.
+  useEffect(() => {
+    if (!activePlayers.length) return;
+
+    const prev = prevFingerprintRef.current;
+    prevFingerprintRef.current = activeFingerprint;
+
+    const activeNameSet = new Set(activePlayers.map((p) => p.name));
+    const filteredOverrides = Object.fromEntries(
+      Object.entries(columnOverridesRef.current).filter(([name]) => activeNameSet.has(name))
+    );
+    const filteredLocked = Object.fromEntries(
+      Object.entries(lockedAssignmentsRef.current).filter(([name]) => activeNameSet.has(name))
+    );
+    const nextLocked = { ...filteredLocked, ...filteredOverrides };
+    setColumnOverrides(filteredOverrides);
+    setLockedAssignments(nextLocked);
+
+    if (prev !== '' || shuffleSeedRef.current === undefined) {
+      setShuffleSeed(findBestSeed(activePlayers, pitcherOverride, selfPitching, nextLocked, 100));
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFingerprint]);
 
   const orderedPlayers = useMemo((): Player[] => {
     if (!activePlayers.length) return roster;
@@ -106,8 +148,14 @@ export default function App() {
     pitcher: autoPitcher,
   } = useMemo(() => {
     if (!activePlayers.length) return { innings: {}, forced: {}, pitcher: null };
-    return computeLineup(activePlayers, pitcherOverride, selfPitching, shuffleSeed);
-  }, [activePlayers, pitcherOverride, selfPitching, shuffleSeed]);
+    return computeLineup(
+      activePlayers,
+      pitcherOverride,
+      selfPitching,
+      shuffleSeed,
+      lockedAssignments
+    );
+  }, [activePlayers, pitcherOverride, selfPitching, shuffleSeed, lockedAssignments]);
 
   const effectiveInnings: Lineup = useMemo(() => {
     const result: Lineup = {};
@@ -125,7 +173,7 @@ export default function App() {
       currentPosition: string,
       swapTargetName: string | null
     ) => {
-      setColumnOverrides((prev) => {
+      const applyOverride = (prev: ColumnOverrides): ColumnOverrides => {
         const next = { ...prev };
         next[playerName] = { ...(next[playerName] ?? {}), [inningIndex]: newPosition };
         if (swapTargetName) {
@@ -135,7 +183,9 @@ export default function App() {
           };
         }
         return next;
-      });
+      };
+      setColumnOverrides(applyOverride);
+      setLockedAssignments(applyOverride);
     },
     []
   );
@@ -220,7 +270,10 @@ export default function App() {
             <Chip
               label={`${overrideCount} overrides`}
               size="small"
-              onDelete={() => setColumnOverrides({})}
+              onDelete={() => {
+                setColumnOverrides({});
+                setLockedAssignments({});
+              }}
               sx={{
                 backgroundColor: OVERRIDE_COLOUR,
                 color: '#fff',
@@ -259,7 +312,7 @@ export default function App() {
           <Button
             size="small"
             variant="outlined"
-            onClick={() => reoptimize(activePlayers)}
+            onClick={() => reoptimize(activePlayers, lockedAssignments)}
             sx={{ textTransform: 'none' }}
           >
             Shuffle

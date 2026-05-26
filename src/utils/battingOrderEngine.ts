@@ -7,7 +7,8 @@ const gender = (p: Player): 'f' | 'm' => (p.gender?.toLowerCase() === 'f' ? 'f' 
 // more remaining players when both are valid, to prevent one gender piling up at the end.
 function buildSeqFrom(nF: number, nM: number, startWith: 'f' | 'm'): ('f' | 'm')[] {
   const seq: ('f' | 'm')[] = [];
-  let remF = nF, remM = nM;
+  let remF = nF,
+    remM = nM;
   let last: 'f' | 'm' | null = null;
   let consec = 0;
   let isFirst = true;
@@ -97,7 +98,7 @@ export function computeBattingOrder(activePlayers: Player[], seed?: number): Pla
   // same gender — a same-gender swap leaves the sequence pattern intact.
   const best = order.reduce((a, b) => (b.battingPower > a.battingPower ? b : a));
   const bestIdx = order.indexOf(best);
-  if (bestIdx !== 1 && gender(order[1]) === gender(best)) {
+  if (bestIdx !== 1 && order.length > 1 && gender(order[1]) === gender(best)) {
     [order[bestIdx], order[1]] = [order[1], order[bestIdx]];
   }
 

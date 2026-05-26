@@ -131,6 +131,7 @@ export function LineupGrid({
               params={params}
               inningIndex={i}
               innings={innings}
+              engineInnings={engineInnings}
               playerPrefs={playerPrefs}
               onOverride={onOverride}
             />
