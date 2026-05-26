@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   DataGrid,
+  DataGridProps,
   GridColDef,
   GridRenderCellParams,
   GridRenderEditCellParams,
@@ -145,8 +146,8 @@ export function LineupGrid({
       {
         field: 'active',
         headerName: '',
-        width: 50,
         sortable: false,
+        width: 50,
         disableExport: true,
         renderCell: ({ row }: GridRenderCellParams<RowData>) => (
           <Checkbox
@@ -160,12 +161,15 @@ export function LineupGrid({
       {
         field: 'battingSlot',
         headerName: 'Order',
-        width: 10,
+        align: 'center',
+        headerAlign: 'center',
+        width: 65,
       },
       {
         field: 'name',
         headerName: 'Player',
         flex: 1,
+        minWidth: 80,
         renderCell: ({ row }: GridRenderCellParams<RowData>) => (
           <Typography variant="body2" sx={{ opacity: row.active ? 1 : 0.35, fontWeight: 500 }}>
             {row.name as string}
@@ -175,18 +179,18 @@ export function LineupGrid({
       {
         field: 'homeruns',
         headerName: 'HRs',
-        width: 60,
+        maxWidth: 10,
         align: 'center',
         headerAlign: 'center',
       },
       {
         field: 'pitcher',
         headerName: 'Pitcher',
-        width: 80,
+        maxWidth: 10,
         sortable: false,
         disableExport: true,
-        align: 'center' as const,
-        headerAlign: 'center' as const,
+        align: 'center',
+        headerAlign: 'center',
         renderCell: ({ row }: GridRenderCellParams<RowData>) => {
           const player = orderedPlayers.find((p) => p.name === row.name);
           if (!player || player.pitcherPriority === null) return null;
@@ -242,7 +246,6 @@ export function LineupGrid({
           sorting: { sortModel: [{ field: 'battingSlot', sort: 'asc' }] },
         }}
         processRowUpdate={(newRow) => newRow}
-        onProcessRowUpdateError={(err) => console.error(err)}
         onCellClick={(params) => {
           if (!params.field.startsWith('inning')) return;
           if (!(params.row as RowData).active) return;
@@ -252,25 +255,67 @@ export function LineupGrid({
             apiRef.current.startCellEditMode({ id: params.id, field: params.field });
           }
         }}
-        sx={{
-          border: 'none',
-          borderRadius: 0,
-          backgroundColor: '#fff',
-          '& .MuiDataGrid-row.inactive': { opacity: 0.45 },
-          '& .MuiDataGrid-columnHeader': {
-            backgroundColor: PALETTE.darkTeal,
-            color: 'white',
-            fontWeight: 700,
-          },
-          '& .MuiDataGrid-columnSeparator': { display: 'none' },
-          '& .MuiDataGrid-cell': { display: 'flex', alignItems: 'center' },
-          '& .MuiDataGrid-cell--editing': {
-            backgroundColor: 'transparent !important',
-            boxShadow: 'none !important',
-          },
-        }}
+        sx={styleOverrides}
         getRowClassName={({ row }) => (row.active ? '' : 'inactive')}
       />
     </Box>
   );
 }
+
+const styleOverrides = {
+  border: 'none',
+  borderRadius: 0,
+  backgroundColor: '#fff',
+  '& .MuiDataGrid-row.inactive': { opacity: 0.45 },
+  '& .MuiDataGrid-columnHeader': {
+    backgroundColor: PALETTE.darkTeal,
+    color: 'white',
+    fontWeight: 700,
+  },
+  '& .MuiDataGrid-columnSeparator': { display: 'none' },
+  '& .MuiDataGrid-cell': { display: 'flex', alignItems: 'center' },
+  '& .MuiDataGrid-cell--editing': {
+    backgroundColor: 'transparent !important',
+    boxShadow: 'none !important',
+  },
+  // Pinned columns — sticky positioning
+  '& .MuiDataGrid-cell[data-field="active"]': {
+    position: 'sticky',
+    left: 0,
+    zIndex: 3,
+    backgroundColor: 'var(--DataGrid-t-color-background-base, #fff)',
+  },
+  '& .MuiDataGrid-cell[data-field="battingSlot"]': {
+    position: 'sticky',
+    left: '50px',
+    zIndex: 3,
+    backgroundColor: 'var(--DataGrid-t-color-background-base, #fff)',
+  },
+  '& .MuiDataGrid-cell[data-field="name"]': {
+    position: 'sticky',
+    left: '115px',
+    zIndex: 3,
+    backgroundColor: 'var(--DataGrid-t-color-background-base, #fff)',
+    borderRight: '1px solid rgb(241, 241, 236)',
+  },
+  // Row hover/selected — inherit from the row so DataGrid's computed color is reused exactly
+  '& .MuiDataGrid-row:hover .MuiDataGrid-cell[data-field="active"], & .MuiDataGrid-row:hover .MuiDataGrid-cell[data-field="battingSlot"], & .MuiDataGrid-row:hover .MuiDataGrid-cell[data-field="name"], & .MuiDataGrid-row.Mui-selected .MuiDataGrid-cell[data-field="active"], & .MuiDataGrid-row.Mui-selected .MuiDataGrid-cell[data-field="battingSlot"], & .MuiDataGrid-row.Mui-selected .MuiDataGrid-cell[data-field="name"]':
+    {
+      backgroundColor: 'inherit',
+    },
+  '& .MuiDataGrid-columnHeader[data-field="active"]': {
+    position: 'sticky',
+    left: 0,
+    zIndex: 5,
+  },
+  '& .MuiDataGrid-columnHeader[data-field="battingSlot"]': {
+    position: 'sticky',
+    left: '50px',
+    zIndex: 5,
+  },
+  '& .MuiDataGrid-columnHeader[data-field="name"]': {
+    position: 'sticky',
+    left: '115px',
+    zIndex: 5,
+  },
+};
