@@ -174,6 +174,28 @@ export function InningEditCell({
         <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px' }}>Other</ListSubheader>
       )}
       {otherOptions.map(renderOption)}
+      {currentValue !== 'SIT' && (
+        <ListSubheader sx={{ fontSize: '0.65rem', lineHeight: '24px' }}>Bench</ListSubheader>
+      )}
+      {currentValue !== 'SIT' && (
+        <MenuItem value="SIT" sx={{ py: 0.5 }}>
+          <Box sx={{ pointerEvents: 'none' }}>
+            <Chip
+              label="SIT"
+              size="small"
+              variant="outlined"
+              sx={{
+                borderColor: '#aaa',
+                color: '#aaa',
+                fontWeight: 600,
+                fontSize: '0.7rem',
+                height: 22,
+                borderRadius: '4px',
+              }}
+            />
+          </Box>
+        </MenuItem>
+      )}
     </Select>
   );
 }
