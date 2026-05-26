@@ -5,6 +5,8 @@ export const PALETTE = {
   sage: '#73ab84',
   lightGreen: '#99d19c',
   teal: '#79c7c5',
+  darkTeal: '#204544',
+  darkestTeal: '#102221',
   lightTeal: '#ade1e5',
 } as const;
 
@@ -12,7 +14,7 @@ export const theme = createTheme({
   palette: {
     primary: {
       main: PALETTE.teal,
-      dark: '#4fa8a6',
+      dark: PALETTE.darkestTeal,
       contrastText: '#fff',
     },
     secondary: {
