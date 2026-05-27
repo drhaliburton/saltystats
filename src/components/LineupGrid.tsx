@@ -303,19 +303,30 @@ const styleOverrides = {
     {
       backgroundColor: 'inherit',
     },
+  // MUI sets z-index: 3 !important on the editing row, matching our sticky cells.
+  // Rows later in the DOM then paint their sticky cells on top of the editing row.
+  // Bumping the editing row to 4 lifts it above all sticky cells; its own sticky cells
+  // need 5 to remain on top within the row's new stacking context.
+  '& .MuiDataGrid-row--editing': {
+    zIndex: '4 !important',
+  },
+  '& .MuiDataGrid-row--editing .MuiDataGrid-cell[data-field="active"], & .MuiDataGrid-row--editing .MuiDataGrid-cell[data-field="battingSlot"], & .MuiDataGrid-row--editing .MuiDataGrid-cell[data-field="name"]':
+    {
+      zIndex: 5,
+    },
   '& .MuiDataGrid-columnHeader[data-field="active"]': {
     position: 'sticky',
     left: 0,
-    zIndex: 5,
+    zIndex: 6,
   },
   '& .MuiDataGrid-columnHeader[data-field="battingSlot"]': {
     position: 'sticky',
     left: '50px',
-    zIndex: 5,
+    zIndex: 6,
   },
   '& .MuiDataGrid-columnHeader[data-field="name"]': {
     position: 'sticky',
     left: '115px',
-    zIndex: 5,
+    zIndex: 6,
   },
 };
